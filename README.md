@@ -4,14 +4,17 @@ CSCI 5117, Fall 2025, [assignment description](https://canvas.umn.edu/courses/51
 
 ## App Info:
 
-* Team Name: TODO
-* App Name: TODO
+* Team Name: Pied Piper
+* App Name: Plant Care Tracker
 * App Link: <https://TODO.com/>
 
 ### Students
 
-* First Last, x500@umn.edu
-* ...
+* Arunachalam Manikandan, manik063@umn.edu
+* Aswatha Sadasivam, sadas021@umn.edu
+* Erina Karati, karat029@umn.edu
+* Poorna Bengaluru Shivaji Rao, benga013@umn.edu
+* Prajwal Umesha, umesh006@umn.edu
 
 
 ## Key Features
