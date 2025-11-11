@@ -35,7 +35,18 @@ Which (if any) progressive web app feature(s) does your app support?
 
 **[Add images/photos that show your mockup](https://stackoverflow.com/questions/10189356/how-to-add-screenshot-to-readmes-in-github-repository) along with a very brief caption:**
 
-![](https://media.giphy.com/media/26ufnwz3wDUli7GU0/giphy.gif)
+**Excalidraw Mockup Link:** https://excalidraw.com/#json=ff5_By1l6aKMJXYtDQTtE,ia-uh1jAGRetKwbrHvpuzw
+
+![Mockup 1](Mockup/Mockup1.png)
+
+![Mockup 2](Mockup/Mockup2.png)
+
+![Mockup 3](Mockup/Mockup3.png)
+
+![Mockup 4](Mockup/Mockup4.png)
+
+
+
 
 
 ## Testing Notes
