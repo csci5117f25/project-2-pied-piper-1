@@ -247,16 +247,6 @@ main                    # Production branch
    - When `dev` is stable, create PR from `dev` to `main`
    - This triggers production deployment
 
-### Code Review Guidelines
-
-- **All code must be reviewed** before merging
-- Check for:
-  - Code quality and best practices
-  - Proper error handling
-  - Firebase security considerations
-  - Mobile responsiveness
-  - Accessibility compliance
-
 ## 📱 Development Commands
 
 ```bash
@@ -432,39 +422,3 @@ npm run build:pwa        # Build with PWA optimizations
 3. Initialize: `firebase init hosting`
 4. Build: `npm run build`
 5. Deploy: `firebase deploy`
-
-### Vercel/Netlify Alternative
-
-- Connect GitHub repository
-- Set environment variables in platform dashboard
-- Automatic deployment on push to main branch
-
-## 👥 Team Members & Responsibilities
-
-- **Arunachalam Manikandan** (manik063@umn.edu) - Project Lead, Firebase Integration
-- **Aswatha Sadasivam** (sadas021@umn.edu) - UI/UX, Vuetify Components
-- **Erina Karati** (karat029@umn.edu) - Authentication, User Management
-- **Poorna Bengaluru Shivaji Rao** (benga013@umn.edu) - Plant CRUD, Database Design
-- **Prajwal Umesha** (umesh006@umn.edu) - PWA Features, Device Integrations
-
-## 📞 Getting Help
-
-1. **Check existing issues** in GitHub repository
-2. **Ask in team discussions** for project-specific questions
-3. **Consult documentation**:
-   - [Vue.js Documentation](https://vuejs.org/)
-   - [Vuetify Documentation](https://vuetifyjs.com/)
-   - [VueFire Documentation](https://vuefire.vuejs.org/)
-   - [Firebase Documentation](https://firebase.google.com/docs)
-
-## 📝 Additional Resources
-
-- [Vue.js Style Guide](https://vuejs.org/style-guide/)
-- [Material Design Guidelines](https://material.io/design)
-- [PWA Best Practices](https://web.dev/progressive-web-apps/)
-- [Firebase Security Rules](https://firebase.google.com/docs/rules)
-- [OpenWeatherMap API Docs](https://openweathermap.org/api)
-
----
-
-Happy coding! 🌱✨
