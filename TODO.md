@@ -1,6 +1,6 @@
-# 🌱 Plant Care Tracker - Development TODO
+# Plant Care Tracker - Development TODO
 
-## 📋 Project Status Dashboard
+## Project Status Dashboard
 
 ### Current Phase: **Phase 1 - Core MVP (Weeks 1-2)**
 
