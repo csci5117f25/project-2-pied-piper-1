@@ -1,13 +1,9 @@
 <script setup>
-import FirebaseTest from '@/components/auth/FirebaseTest.vue'
+// Main app component - router-view handles all routing
 </script>
 
 <template>
-  <v-app>
-    <v-main>
-      <FirebaseTest />
-    </v-main>
-  </v-app>
+  <router-view />
 </template>
 
 <style scoped></style>
