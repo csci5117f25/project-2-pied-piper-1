@@ -46,52 +46,11 @@ jobs:
           VITE_FIREBASE_APP_ID: '1:123:web:abc123'
           VITE_OPENWEATHER_API_KEY: 'dummy-weather-key'
 
-  # Deploy to Firebase Hosting (only on main branch)
-  deploy:
-    needs: quality
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build for production
-        run: npm run build
-        env:
-          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
-          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
-          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
-          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
-          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
-          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
-          VITE_FIREBASE_MEASUREMENT_ID: ${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}
-          VITE_OPENWEATHER_API_KEY: ${{ secrets.VITE_OPENWEATHER_API_KEY }}
-
-      - name: Deploy to Firebase Hosting
-        run: |
-          # Install Firebase CLI
-          npm install -g firebase-tools
-
-          # Write service account key to file
-          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}' > firebase-key.json
-
-          # Authenticate using service account
-          export GOOGLE_APPLICATION_CREDENTIALS=firebase-key.json
-
-          # Initialize Firebase project if needed
-          echo '{"projects":{"default":"plant-care-tracker-cda44"}}' > .firebaserc
-
-          # Deploy
-          firebase deploy --only hosting --non-interactive  # Security scan
+  # Deploy to Firebase Hosting (DISABLED - Use manual deploy)
+  # deploy:
+  #   needs: quality
+  #   runs-on: ubuntu-latest
+  #   if: github.ref == 'refs/heads/main' && github.event_name == 'push'  # Security scan
   security:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
