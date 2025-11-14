@@ -209,7 +209,7 @@ import { useRouter } from 'vue-router'
 import { onAuthStateChanged } from 'firebase/auth'
 import { doc, updateDoc } from 'firebase/firestore'
 import { auth, db } from '@/firebase'
-import AddPlantDialog from '@/components/plant/AddPlantDialog.vue'
+import AddPlantDialog from '@/components/AddPlantDialog.vue'
 
 const router = useRouter()
 

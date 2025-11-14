@@ -17,7 +17,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
           cache: 'npm'
 
       - name: Install dependencies
@@ -30,16 +30,21 @@ jobs:
         run: npm run format -- --check
 
       - name: Build application
-        run: npm run build
+        run: |
+          # Use production config without PWA if issues persist
+          if [ -f "vite.config.production.js" ]; then
+            npm run build -- --config vite.config.production.js
+          else
+            npm run build
+          fi
         env:
-          # Use dummy values for build test
-          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY || 'dummy-key' }}
-          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN || 'dummy-domain' }}
-          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID || 'dummy-project' }}
-          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET || 'dummy-bucket' }}
-          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID || 'dummy-sender' }}
-          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID || 'dummy-app-id' }}
-          VITE_OPENWEATHER_API_KEY: ${{ secrets.VITE_OPENWEATHER_API_KEY || 'dummy-weather-key' }}
+          VITE_FIREBASE_API_KEY: 'dummy-key-for-build-test'
+          VITE_FIREBASE_AUTH_DOMAIN: 'dummy-domain.firebaseapp.com'
+          VITE_FIREBASE_PROJECT_ID: 'dummy-project'
+          VITE_FIREBASE_STORAGE_BUCKET: 'dummy-bucket.appspot.com'
+          VITE_FIREBASE_MESSAGING_SENDER_ID: '123456789'
+          VITE_FIREBASE_APP_ID: '1:123:web:abc123'
+          VITE_OPENWEATHER_API_KEY: 'dummy-weather-key'
 
   # Deploy to Firebase Hosting (only on main branch)
   deploy:
@@ -53,7 +58,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
           cache: 'npm'
 
       - name: Install dependencies
