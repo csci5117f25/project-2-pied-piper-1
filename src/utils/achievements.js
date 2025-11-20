@@ -4,7 +4,7 @@ import { db } from '@/firebase'
 /**
  * Handle updating achievements when a new plant is added.
  */
-export async function handlePlantAdded(userId, plantId) {
+export async function handlePlantAdded(userId) {
   if (!userId) return
 
   try {
@@ -61,7 +61,7 @@ export async function handlePlantAdded(userId, plantId) {
 
 // TODO: Export other helpers as needed in future (watering, photos, etc.)
 
-export async function handlePlantRemoved(userId, plantId) {
+export async function handlePlantRemoved(userId) {
   if (!userId) return
 
   try {

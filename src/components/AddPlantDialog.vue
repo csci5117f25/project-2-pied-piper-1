@@ -428,8 +428,10 @@ const resetForm = () => {
 const nextStep = async () => {
   if (currentStep.value === 2) {
     // Validate form before proceeding to step 3
-    const { valid } = await plantFormRef.value?.validate()
-    if (!valid) return
+    if (plantFormRef.value && typeof plantFormRef.value.validate === 'function') {
+      const { valid } = await plantFormRef.value.validate()
+      if (!valid) return
+    }
   }
   
   if (currentStep.value < 3) {

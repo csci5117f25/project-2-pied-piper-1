@@ -285,7 +285,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { doc, getDoc, updateDoc, deleteDoc, increment, collection, addDoc } from 'firebase/firestore'
 import { handlePlantRemoved } from '@/utils/achievements'
