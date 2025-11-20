@@ -29,7 +29,7 @@
     </v-bottom-navigation>
 
     <!-- Desktop Navigation Drawer -->
-    <v-navigation-drawer v-if="!$vuetify.display.mobile" permanent width="260" class="desktop-nav">
+    <v-navigation-drawer v-if="!$vuetify.display.mobile" permanent width="260" class="desktop-nav" :model-value="true">
       <!-- App Header -->
       <div class="nav-header pa-4">
         <div class="d-flex align-center">

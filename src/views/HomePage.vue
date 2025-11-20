@@ -143,7 +143,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { onAuthStateChanged } from 'firebase/auth'
-import { collection, query, where, onSnapshot } from 'firebase/firestore'
+import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore'
 import { auth, db } from '@/firebase'
 
 // Reactive data
@@ -205,16 +205,30 @@ onMounted(() => {
 })
 
 // Plant watering actions
-const completePlantWatering = (plant) => {
-  // TODO: Update plant watering status in Firestore
-  showSuccess.value = true
-  successMessage.value = `${plant.nickname} watered! 💧`
+const completePlantWatering = async (plant) => {
+  try {
+    const plantRef = doc(db, 'plants', plant.id)
+    await updateDoc(plantRef, {
+      lastWatered: new Date(),
+    })
+    showSuccess.value = true
+    successMessage.value = `${plant.nickname} watered! 💧`
+  } catch (error) {
+    console.error('Error updating watering:', error)
+  }
 }
 
-const skipPlantWatering = (plant) => {
-  // TODO: Skip watering for today
-  showSuccess.value = true
-  successMessage.value = `Watering skipped for ${plant.nickname}`
+const skipPlantWatering = async (plant) => {
+  try {
+    const plantRef = doc(db, 'plants', plant.id)
+    await updateDoc(plantRef, {
+      lastSkipped: new Date(),
+    })
+    showSuccess.value = true
+    successMessage.value = `Watering skipped for ${plant.nickname}`
+  } catch (error) {
+    console.error('Error skipping watering:', error)
+  }
 }
 </script>
 

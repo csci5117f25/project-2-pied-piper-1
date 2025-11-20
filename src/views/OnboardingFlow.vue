@@ -207,7 +207,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { onAuthStateChanged } from 'firebase/auth'
-import { doc, updateDoc } from 'firebase/firestore'
+import { doc, updateDoc, getDoc } from 'firebase/firestore'
 import { auth, db } from '@/firebase'
 import AddPlantDialog from '@/components/AddPlantDialog.vue'
 
@@ -232,11 +232,26 @@ const notificationsEnabled = ref(false)
 // Computed
 const progress = computed(() => ((currentStep.value + 1) / totalSteps.value) * 100)
 
-// Get current user
+// Get current user and check onboarding status
 onMounted(() => {
-  onAuthStateChanged(auth, (currentUser) => {
+  onAuthStateChanged(auth, async (currentUser) => {
     if (currentUser) {
       user.value = currentUser
+      
+      // Check if user has already completed onboarding
+      try {
+        const userRef = doc(db, 'users', currentUser.uid)
+        const userDoc = await getDoc(userRef)
+        
+        if (userDoc.exists() && userDoc.data().onboardingCompleted) {
+          // User has already completed onboarding, redirect to main app
+          router.push('/app/home')
+          return
+        }
+      } catch (error) {
+        console.error('Error checking onboarding status:', error)
+        // Continue with onboarding if there's an error
+      }
     } else {
       router.push('/')
     }
