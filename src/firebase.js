@@ -8,14 +8,14 @@ import { getAnalytics } from 'firebase/analytics'
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-  apiKey: 'AIzaSyAKwPkVwwDX3WE4nsbdtRsPUeQ3lF1p8EA',
-  authDomain: 'plant-care-tracker-cda44.firebaseapp.com',
-  projectId: 'plant-care-tracker-cda44',
-  storageBucket: 'plant-care-tracker-cda44.firebasestorage.app',
-  messagingSenderId: '460044456430',
-  appId: '1:460044456430:web:88842d65dda87365593eff',
-  measurementId: 'G-PNK7DM0YH7',
-}
+  apiKey: "AIzaSyACup9zMEDK6fGtEItR4t40ScGL8TDq2bI",
+  authDomain: "planttracker-35804.firebaseapp.com",
+  projectId: "planttracker-35804",
+  storageBucket: "planttracker-35804.firebasestorage.app",
+  messagingSenderId: "656630799544",
+  appId: "1:656630799544:web:ade5e2e669e0259260a84d",
+  measurementId: "G-CHHGTKJTK0"
+};
 
 // Initialize Firebase
 export const firebaseApp = initializeApp(firebaseConfig)

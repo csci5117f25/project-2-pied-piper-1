@@ -82,7 +82,7 @@
           <div v-else-if="currentStep === 2" class="pa-6">
             <h3 class="text-h6 font-weight-bold mb-4">Plant Details</h3>
 
-            <v-form ref="plantForm" class="plant-details-form">
+            <v-form ref="plantFormRef" class="plant-details-form">
               <v-text-field
                 v-model="plantForm.nickname"
                 label="Plant Nickname *"
@@ -281,7 +281,8 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import { collection, addDoc, doc, updateDoc } from 'firebase/firestore'
+import { collection, addDoc, doc, updateDoc, increment } from 'firebase/firestore'
+import { handlePlantAdded } from '@/utils/achievements'
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { onAuthStateChanged } from 'firebase/auth'
 import { auth, db, storage } from '@/firebase'
@@ -311,6 +312,7 @@ const canvasElement = ref(null)
 const fileInput = ref(null)
 const cameraStream = ref(null)
 const user = ref(null)
+const plantFormRef = ref(null)
 
 // Dialog control
 const internalDialog = computed({
@@ -400,7 +402,9 @@ watch(
 // Reset form when dialog closes
 watch(internalDialog, (isOpen) => {
   if (!isOpen) {
-    resetForm()
+    setTimeout(() => {
+      resetForm()
+    }, 100)
   }
 })
 
@@ -421,7 +425,15 @@ const resetForm = () => {
   }
 }
 
-const nextStep = () => {
+const nextStep = async () => {
+  if (currentStep.value === 2) {
+    // Validate form before proceeding to step 3
+    if (plantFormRef.value && typeof plantFormRef.value.validate === 'function') {
+      const { valid } = await plantFormRef.value.validate()
+      if (!valid) return
+    }
+  }
+  
   if (currentStep.value < 3) {
     currentStep.value++
   }
@@ -429,6 +441,7 @@ const nextStep = () => {
 
 const closeDialog = () => {
   stopCamera()
+  resetForm()
   internalDialog.value = false
 }
 
@@ -565,6 +578,32 @@ const savePlant = async () => {
     } else {
       // Add new plant
       const docRef = await addDoc(collection(db, 'plants'), plantData)
+
+      // Log activity
+      await addDoc(collection(db, 'users', user.value.uid, 'activities'), {
+        type: 'plant_added',
+        title: 'Added New Plant',
+        description: `Welcome ${plantData.nickname} to your collection!`,
+        plantId: docRef.id,
+        timestamp: new Date(),
+        userId: user.value.uid,
+        xpEarned: 10
+      })
+
+      // Increment user's plant count first so achievement sync reads the updated value
+      try {
+        const userRef = doc(db, 'users', user.value.uid)
+        await updateDoc(userRef, { numberOfPlants: increment(1) })
+      } catch (err) {
+        console.error('Failed to increment user.numberOfPlants:', err)
+      }
+
+      // Update achievements for this user (transaction-safe)
+      try {
+        await handlePlantAdded(user.value.uid, docRef.id)
+      } catch (err) {
+        console.error('Failed to update achievements after adding plant:', err)
+      }
 
       emit('plant-added', { id: docRef.id, ...plantData })
     }

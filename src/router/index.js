@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { onAuthStateChanged } from 'firebase/auth'
-import { auth } from '@/firebase'
+import { doc, getDoc } from 'firebase/firestore'
+import { auth, db } from '@/firebase'
 
 // Lazy load components
 const SplashScreen = () => import('@/components/auth/SplashScreen.vue')
@@ -8,6 +9,7 @@ const OnboardingFlow = () => import('@/views/OnboardingFlow.vue')
 const MainLayout = () => import('@/layouts/MainLayout.vue')
 const HomePage = () => import('@/views/HomePage.vue')
 const MyPlantsPage = () => import('@/views/MyPlantsPage.vue')
+const PlantDetailPage = () => import('@/views/PlantDetailPage.vue')
 const RewardsPage = () => import('@/views/RewardsPage.vue')
 const SettingsPage = () => import('@/views/SettingsPage.vue')
 
@@ -44,6 +46,11 @@ const router = createRouter({
           path: 'plants',
           name: 'plants',
           component: MyPlantsPage,
+        },
+        {
+          path: 'plants/:id',
+          name: 'plant-detail',
+          component: PlantDetailPage,
         },
         {
           path: 'rewards',
@@ -90,7 +97,24 @@ router.beforeEach(async (to, from, next) => {
     // Redirect to splash if trying to access protected route while not authenticated
     next('/')
   } else if (requiresGuest && isAuthenticated) {
-    // Redirect to main app if trying to access guest route while authenticated
+    // Check if user needs onboarding
+    try {
+      const user = auth.currentUser
+      if (user) {
+        const userRef = doc(db, 'users', user.uid)
+        const userDoc = await getDoc(userRef)
+        
+        if (!userDoc.exists() || !userDoc.data().onboardingCompleted) {
+          // New user or hasn't completed onboarding
+          next('/onboarding')
+          return
+        }
+      }
+    } catch (error) {
+      console.error('Error checking onboarding status:', error)
+    }
+    
+    // Redirect to main app if authenticated and onboarding completed
     next('/app/home')
   } else {
     next()

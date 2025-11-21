@@ -144,6 +144,13 @@
 
     <!-- Add Plant Dialog -->
     <AddPlantDialog v-model="showAddDialog" @plant-added="handlePlantAdded" />
+    
+    <!-- Edit Plant Dialog -->
+    <EditPlantDialog 
+      v-model="showEditDialog" 
+      :plant="plantToEdit"
+      @plant-updated="handlePlantUpdated"
+    />
     <!-- Success Snackbar -->
     <v-snackbar v-model="showSuccess" color="success" :timeout="3000" location="top">
       {{ successMessage }}
@@ -171,9 +178,11 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { onAuthStateChanged } from 'firebase/auth'
-import { collection, query, where, onSnapshot, doc, deleteDoc, updateDoc } from 'firebase/firestore'
+import { collection, query, where, onSnapshot, doc, deleteDoc, updateDoc, increment, addDoc } from 'firebase/firestore'
+import { handlePlantRemoved } from '@/utils/achievements'
 import { auth, db } from '@/firebase'
 import AddPlantDialog from '@/components/AddPlantDialog.vue'
+import EditPlantDialog from '@/components/EditPlantDialog.vue'
 
 const router = useRouter()
 
@@ -186,6 +195,8 @@ const showSuccess = ref(false)
 const successMessage = ref('')
 const showConfirmDialog = ref(false)
 const plantToDelete = ref(null)
+const plantToEdit = ref(null)
+const showEditDialog = ref(false)
 
 // Filter options
 const filterOptions = [
@@ -278,9 +289,16 @@ const waterPlant = async (plant) => {
   }
 }
 
-const editPlant = () => {
-  // TODO: Open edit dialog with plant data
-  showAddDialog.value = true
+const editPlant = (plant) => {
+  plantToEdit.value = plant
+  showEditDialog.value = true
+}
+
+const handlePlantUpdated = (plant) => {
+  showSuccess.value = true
+  successMessage.value = `${plant.nickname} updated successfully!`
+  showEditDialog.value = false
+  plantToEdit.value = null
 }
 
 const deletePlant = (plant) => {
@@ -292,6 +310,42 @@ const confirmDelete = async () => {
   try {
     if (plantToDelete.value) {
       await deleteDoc(doc(db, 'plants', plantToDelete.value.id))
+
+      // Decrement user's plant count
+      try {
+        const uid = auth.currentUser?.uid
+        if (uid) {
+          await updateDoc(doc(db, 'users', uid), { numberOfPlants: increment(-1) })
+        }
+      } catch (err) {
+        console.error('Failed to decrement user.numberOfPlants:', err)
+      }
+
+      // Update achievements for plant removal
+      try {
+        const uid = auth.currentUser?.uid
+        if (uid) await handlePlantRemoved(uid, plantToDelete.value.id)
+      } catch (err) {
+        console.error('Failed to update achievements after plant deletion:', err)
+      }
+
+      // Log deletion activity
+      try {
+        const uid = auth.currentUser?.uid
+        if (uid) {
+          await addDoc(collection(db, 'users', uid, 'activities'), {
+            type: 'plant_deleted',
+            title: 'Plant Deleted',
+            description: `Deleted ${plantToDelete.value.nickname} from your collection`,
+            plantId: plantToDelete.value.id,
+            timestamp: new Date(),
+            userId: uid,
+            xpEarned: 0,
+          })
+        }
+      } catch (err) {
+        console.error('Failed to log plant deletion activity:', err)
+      }
 
       showSuccess.value = true
       successMessage.value = `${plantToDelete.value.nickname} deleted`

@@ -201,15 +201,16 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { onAuthStateChanged } from 'firebase/auth'
-import { auth } from '@/firebase'
+import { doc, getDoc, collection, getDocs, query, orderBy, limit, where } from 'firebase/firestore'
+import { auth, db } from '@/firebase'
 
 // User stats
 const userStats = ref({
-  totalPlants: 3,
-  wateringStreak: 5,
-  achievementsUnlocked: 2,
-  currentXP: 150,
-  totalXP: 150,
+  totalPlants: 0,
+  wateringStreak: 0,
+  achievementsUnlocked: 0,
+  currentXP: 0,
+  totalXP: 0,
 })
 
 // Level system
@@ -278,9 +279,9 @@ const achievements = ref([
     color: 'success',
     xpReward: 10,
     target: 1,
-    progress: 1,
-    unlocked: true,
-    unlockedDate: new Date('2024-01-15'),
+    progress: 0,
+    unlocked: false,
+    unlockedDate: null,
   },
   {
     id: 'water-warrior',
@@ -290,9 +291,9 @@ const achievements = ref([
     color: 'primary',
     xpReward: 25,
     target: 5,
-    progress: 5,
-    unlocked: true,
-    unlockedDate: new Date('2024-01-20'),
+    progress: 0,
+    unlocked: false,
+    unlockedDate: null,
   },
   {
     id: 'plant-collector',
@@ -302,7 +303,7 @@ const achievements = ref([
     color: 'warning',
     xpReward: 50,
     target: 5,
-    progress: 3,
+    progress: 0,
     unlocked: false,
     unlockedDate: null,
   },
@@ -314,7 +315,7 @@ const achievements = ref([
     color: 'success',
     xpReward: 100,
     target: 30,
-    progress: 12,
+    progress: 0,
     unlocked: false,
     unlockedDate: null,
   },
@@ -326,7 +327,7 @@ const achievements = ref([
     color: 'purple',
     xpReward: 30,
     target: 10,
-    progress: 2,
+    progress: 0,
     unlocked: false,
     unlockedDate: null,
   },
@@ -338,36 +339,14 @@ const achievements = ref([
     color: 'indigo',
     xpReward: 75,
     target: 7,
-    progress: 3,
+    progress: 0,
     unlocked: false,
     unlockedDate: null,
   },
 ])
 
 // Recent activities
-const recentActivities = ref([
-  {
-    title: 'Watered Monstera',
-    description: 'Completed daily watering task',
-    icon: 'mdi-water',
-    color: 'primary',
-    timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
-  },
-  {
-    title: 'Achievement Unlocked!',
-    description: 'Water Warrior - 5 day watering streak',
-    icon: 'mdi-trophy',
-    color: 'warning',
-    timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1 day ago
-  },
-  {
-    title: 'Added Snake Plant',
-    description: 'New plant added to collection',
-    icon: 'mdi-plus-circle',
-    color: 'success',
-    timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
-  },
-])
+const recentActivities = ref([])
 
 // Utility functions
 const formatDate = (date) => {
@@ -395,12 +374,136 @@ const formatTime = (date) => {
 
 // Initialize data
 onMounted(() => {
-  onAuthStateChanged(auth, (user) => {
+  onAuthStateChanged(auth, async (user) => {
     if (user) {
-      // TODO: Load user stats and achievements from Firestore
+      await loadUserStats(user.uid)
+      await loadUserAchievements(user.uid)
+      await loadRecentActivities(user.uid)
     }
   })
 })
+
+// Load user stats from Firestore
+const loadUserStats = async (userId) => {
+  try {
+    // Get user data
+    const userRef = doc(db, 'users', userId)
+    const userDoc = await getDoc(userRef)
+    
+    // Count plants
+    const plantsRef = collection(db, 'plants')
+    const plantsQuery = query(plantsRef, where('userId', '==', userId))
+    const plantsSnap = await getDocs(plantsQuery)
+    
+    // Count unlocked achievements
+    const achievementsRef = collection(db, 'users', userId, 'achievements')
+    const achievementsSnap = await getDocs(achievementsRef)
+    const unlockedCount = achievementsSnap.docs.filter(doc => doc.data().unlocked).length
+    
+    if (userDoc.exists()) {
+      const userData = userDoc.data()
+      userStats.value = {
+        totalPlants: plantsSnap.size,
+        wateringStreak: userData.wateringStreak || 0,
+        achievementsUnlocked: unlockedCount,
+        currentXP: userData.currentXP || 0,
+        totalXP: userData.totalXP || 0,
+      }
+    } else {
+      userStats.value = {
+        totalPlants: plantsSnap.size,
+        wateringStreak: 0,
+        achievementsUnlocked: unlockedCount,
+        currentXP: 0,
+        totalXP: 0,
+      }
+    }
+  } catch (error) {
+    console.error('Error loading user stats:', error)
+  }
+}
+
+// Load user achievements from Firestore
+const loadUserAchievements = async (userId) => {
+  try {
+    const achievementsRef = collection(db, 'users', userId, 'achievements')
+    const achievementsSnap = await getDocs(achievementsRef)
+    
+    achievementsSnap.forEach((doc) => {
+      const achievementData = doc.data()
+  const achievement = achievements.value.find(a => a.id === doc.id || a.id === achievementData.id)
+
+      // Helper to parse Firestore Timestamp or ISO string
+      const parseUnlockedDate = (val) => {
+        if (!val) return null
+        if (val.toDate) return val.toDate()
+        if (typeof val === 'string') return new Date(val)
+        try { return new Date(val) } catch { return null }
+      }
+
+      if (achievement) {
+        achievement.progress = (typeof achievementData.progress === 'number') ? achievementData.progress : (achievementData.progress || 0)
+        achievement.unlocked = !!achievementData.unlocked
+        achievement.unlockedDate = parseUnlockedDate(achievementData.unlockedDate)
+      } else {
+        // If there's an achievement doc in Firestore that isn't in the local list,
+        // add it so user-specific achievements show up.
+        achievements.value.push({
+          id: doc.id,
+          name: achievementData.name || doc.id,
+          description: achievementData.description || '',
+          icon: achievementData.icon || 'mdi-trophy',
+          color: achievementData.color || 'grey',
+          xpReward: achievementData.xpReward || 0,
+          target: achievementData.target || achievementData.goal || 1,
+          progress: (typeof achievementData.progress === 'number') ? achievementData.progress : (achievementData.progress || 0),
+          unlocked: !!achievementData.unlocked,
+          unlockedDate: parseUnlockedDate(achievementData.unlockedDate),
+        })
+      }
+    })
+  } catch (error) {
+    console.error('Error loading achievements:', error)
+  }
+}
+
+// Activity type mappings
+const getActivityStyle = (type) => {
+  const styles = {
+    plant_added: { icon: 'mdi-plus-circle', color: 'success' },
+    plant_watered: { icon: 'mdi-water', color: 'primary' },
+    achievement_unlocked: { icon: 'mdi-trophy', color: 'warning' },
+    plant_photo: { icon: 'mdi-camera', color: 'purple' },
+    plant_deleted: { icon: 'mdi-delete', color: 'error' }
+  }
+  return styles[type] || { icon: 'mdi-circle', color: 'grey' }
+}
+
+// Load recent activities from Firestore
+const loadRecentActivities = async (userId) => {
+  try {
+    const activitiesRef = collection(db, 'users', userId, 'activities')
+    const activitiesQuery = query(activitiesRef, orderBy('timestamp', 'desc'), limit(10))
+    const activitiesSnap = await getDocs(activitiesQuery)
+    
+    console.log('Activities found:', activitiesSnap.size)
+    
+    recentActivities.value = activitiesSnap.docs.map(doc => {
+      const data = doc.data()
+      console.log('Activity data:', data)
+      const style = getActivityStyle(data.type)
+      return {
+        title: data.title,
+        description: data.description,
+        icon: style.icon,
+        color: style.color,
+        timestamp: data.timestamp?.toDate() || new Date()
+      }
+    })
+  } catch (error) {
+    console.error('Error loading activities:', error)
+  }
+}
 </script>
 
 <style scoped>
