@@ -24,39 +24,13 @@
       </v-col>
     </v-row>
 
-    <!-- Calendar Strip -->
+    <!-- Enhanced Calendar Widget -->
     <v-row class="mb-4">
       <v-col cols="12">
-        <v-card elevation="2">
-          <v-card-text class="pa-4">
-            <div class="text-h6 mb-3">This Week</div>
-            <div class="d-flex justify-space-between calendar-strip">
-              <div
-                v-for="day in weekDays"
-                :key="day.date"
-                class="calendar-day text-center"
-                :class="{ 'calendar-day--today': day.isToday }"
-                @click="selectedDate = day.date"
-              >
-                <div class="text-caption text-medium-emphasis">
-                  {{ day.dayName }}
-                </div>
-                <div class="text-h6 font-weight-bold mt-1">
-                  {{ day.dayNumber }}
-                </div>
-                <div class="mt-2">
-                  <v-icon
-                    v-if="day.hasPlants"
-                    size="16"
-                    :color="day.isToday ? 'primary' : 'success'"
-                  >
-                    mdi-sprout
-                  </v-icon>
-                </div>
-              </div>
-            </div>
-          </v-card-text>
-        </v-card>
+        <CalendarWidget 
+          :plants="plants" 
+          @day-selected="onDaySelected"
+        />
       </v-col>
     </v-row>
 
@@ -139,6 +113,7 @@ import { onAuthStateChanged } from 'firebase/auth'
 import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore'
 import { auth, db } from '@/firebase'
 import WeatherWidget from '@/components/WeatherWidget.vue'
+import CalendarWidget from '@/components/CalendarWidget.vue'
 
 // Reactive data
 const user = ref(null)
@@ -147,29 +122,11 @@ const showSuccess = ref(false)
 const successMessage = ref('')
 const plants = ref([])
 
-// Get current week days
-const weekDays = computed(() => {
-  const today = new Date()
-  const currentDay = today.getDay() // 0 = Sunday, 1 = Monday, etc.
-  const startOfWeek = new Date(today)
-  startOfWeek.setDate(today.getDate() - currentDay)
-
-  const days = []
-  for (let i = 0; i < 7; i++) {
-    const date = new Date(startOfWeek)
-    date.setDate(startOfWeek.getDate() + i)
-
-    days.push({
-      date: date,
-      dayName: date.toLocaleDateString('en-US', { weekday: 'short' }),
-      dayNumber: date.getDate(),
-      isToday: date.toDateString() === today.toDateString(),
-      hasPlants: Math.random() > 0.5, // Placeholder - will be calculated from actual plants
-    })
-  }
-
-  return days
-})
+// Calendar event handler
+const onDaySelected = (day) => {
+  selectedDate.value = day.date
+  console.log('Selected day:', day.fullDate)
+}
 
 // Plants that need watering today
 const plantsToday = computed(() => {
@@ -234,27 +191,7 @@ const skipPlantWatering = async (plant) => {
 
 
 
-.calendar-strip {
-  overflow-x: auto;
-  padding: 8px 0;
-}
 
-.calendar-day {
-  min-width: 60px;
-  padding: 8px;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.calendar-day:hover {
-  background-color: rgba(var(--v-theme-primary), 0.1);
-}
-
-.calendar-day--today {
-  background-color: rgba(var(--v-theme-primary), 0.1);
-  color: rgb(var(--v-theme-primary));
-}
 
 .plant-card-item {
   transition: background-color 0.2s ease;
