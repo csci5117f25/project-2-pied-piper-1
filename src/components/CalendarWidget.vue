@@ -3,40 +3,51 @@
     <v-card-title class="d-flex align-center justify-space-between">
       <div class="d-flex align-center">
         <v-icon class="mr-2" color="primary">mdi-calendar</v-icon>
-        This Week
+        {{ viewMode === 'week' ? 'This Week' : 'This Month' }}
       </div>
-      <v-btn 
-        @click="goToToday" 
-        size="small" 
-        variant="text" 
-        color="primary"
-      >
-        Today
-      </v-btn>
+      <div class="d-flex align-center gap-2">
+        <v-btn-toggle 
+          v-model="viewMode" 
+          mandatory 
+          density="compact"
+          class="mr-2"
+        >
+          <v-btn value="week" size="small">Week</v-btn>
+          <v-btn value="month" size="small">Month</v-btn>
+        </v-btn-toggle>
+        <v-btn 
+          @click="goToToday" 
+          size="small" 
+          variant="text" 
+          color="primary"
+        >
+          Today
+        </v-btn>
+      </div>
     </v-card-title>
 
     <v-card-text class="pa-4">
-      <!-- Week Navigation -->
+      <!-- Navigation -->
       <div class="d-flex align-center justify-space-between mb-3">
         <v-btn 
-          @click="previousWeek" 
+          @click="viewMode === 'week' ? previousWeek() : previousMonth()" 
           icon="mdi-chevron-left" 
           size="small" 
           variant="text"
         />
         <div class="text-subtitle-1 font-weight-medium">
-          {{ weekRange }}
+          {{ viewMode === 'week' ? weekRange : monthRange }}
         </div>
         <v-btn 
-          @click="nextWeek" 
+          @click="viewMode === 'week' ? nextWeek() : nextMonth()" 
           icon="mdi-chevron-right" 
           size="small" 
           variant="text"
         />
       </div>
 
-      <!-- Calendar Days -->
-      <div class="calendar-days">
+      <!-- Week View -->
+      <div v-if="viewMode === 'week'" class="calendar-days">
         <div
           v-for="day in weekDays"
           :key="day.dateString"
@@ -48,13 +59,8 @@
           }"
           @click="selectDay(day)"
         >
-          <!-- Day Name -->
           <div class="day-name">{{ day.dayName }}</div>
-          
-          <!-- Day Number -->
           <div class="day-number">{{ day.dayNumber }}</div>
-          
-          <!-- Plant Indicators -->
           <div class="plant-indicators">
             <v-chip
               v-if="day.plantCount > 0"
@@ -71,6 +77,37 @@
             >
               mdi-circle-outline
             </v-icon>
+          </div>
+        </div>
+      </div>
+
+      <!-- Month View -->
+      <div v-else class="month-calendar">
+        <!-- Day Headers -->
+        <div class="month-headers">
+          <div v-for="dayName in dayHeaders" :key="dayName" class="month-header">
+            {{ dayName }}
+          </div>
+        </div>
+        
+        <!-- Month Days -->
+        <div class="month-days">
+          <div
+            v-for="day in monthDays"
+            :key="day.dateString"
+            class="month-day"
+            :class="{ 
+              'month-day--today': day.isToday,
+              'month-day--selected': day.isSelected,
+              'month-day--has-plants': day.plantCount > 0,
+              'month-day--other-month': day.isOtherMonth
+            }"
+            @click="selectDay(day)"
+          >
+            <div class="month-day-number">{{ day.dayNumber }}</div>
+            <div v-if="day.plantCount > 0" class="month-plant-indicator">
+              <v-icon size="12" color="success">mdi-circle</v-icon>
+            </div>
           </div>
         </div>
       </div>
@@ -107,7 +144,9 @@ const props = defineProps({
 const emit = defineEmits(['day-selected'])
 
 // Reactive data
+const viewMode = ref('week')
 const currentWeekStart = ref(new Date())
+const currentMonth = ref(new Date())
 const selectedDate = ref(new Date())
 const plantCounts = ref(new Map()) // Store stable plant counts
 
@@ -170,6 +209,53 @@ const weekRange = computed(() => {
   }
 })
 
+const monthRange = computed(() => {
+  return currentMonth.value.toLocaleDateString('en-US', { 
+    month: 'long', 
+    year: 'numeric' 
+  })
+})
+
+const dayHeaders = computed(() => {
+  return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+})
+
+const monthDays = computed(() => {
+  const days = []
+  const today = new Date()
+  const firstDay = new Date(currentMonth.value.getFullYear(), currentMonth.value.getMonth(), 1)
+  const lastDay = new Date(currentMonth.value.getFullYear(), currentMonth.value.getMonth() + 1, 0)
+  
+  // Start from the first Sunday of the calendar
+  const startDate = new Date(firstDay)
+  startDate.setDate(firstDay.getDate() - firstDay.getDay())
+  
+  // Generate 42 days (6 weeks)
+  for (let i = 0; i < 42; i++) {
+    const date = new Date(startDate)
+    date.setDate(startDate.getDate() + i)
+    const dateString = date.toISOString().split('T')[0]
+    
+    days.push({
+      date: date,
+      dateString: dateString,
+      dayNumber: date.getDate(),
+      fullDate: date.toLocaleDateString('en-US', { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      }),
+      isToday: date.toDateString() === today.toDateString(),
+      isSelected: date.toDateString() === selectedDate.value.toDateString(),
+      isOtherMonth: date.getMonth() !== currentMonth.value.getMonth(),
+      plantCount: getPlantCount(dateString)
+    })
+  }
+  
+  return days
+})
+
 const selectedDay = computed(() => {
   return weekDays.value.find(day => day.isSelected)
 })
@@ -178,6 +264,7 @@ const selectedDay = computed(() => {
 const goToToday = () => {
   const today = new Date()
   setWeekStart(today)
+  setMonthStart(today)
   selectedDate.value = today
 }
 
@@ -193,6 +280,18 @@ const nextWeek = () => {
   currentWeekStart.value = newStart
 }
 
+const previousMonth = () => {
+  const newMonth = new Date(currentMonth.value)
+  newMonth.setMonth(newMonth.getMonth() - 1)
+  currentMonth.value = newMonth
+}
+
+const nextMonth = () => {
+  const newMonth = new Date(currentMonth.value)
+  newMonth.setMonth(newMonth.getMonth() + 1)
+  currentMonth.value = newMonth
+}
+
 const selectDay = (day) => {
   selectedDate.value = new Date(day.date)
   emit('day-selected', day)
@@ -203,6 +302,11 @@ const setWeekStart = (date) => {
   const start = new Date(date)
   start.setDate(date.getDate() - dayOfWeek)
   currentWeekStart.value = start
+}
+
+const setMonthStart = (date) => {
+  const start = new Date(date.getFullYear(), date.getMonth(), 1)
+  currentMonth.value = start
 }
 
 // Initialize
@@ -308,6 +412,95 @@ onMounted(() => {
   padding: 12px;
 }
 
+/* Month View Styles */
+.month-calendar {
+  width: 100%;
+}
+
+.month-headers {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  margin-bottom: 8px;
+}
+
+.month-header {
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 8px;
+  color: rgba(var(--v-theme-on-surface), 0.6);
+}
+
+.month-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+}
+
+.month-day {
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  min-height: 40px;
+}
+
+.month-day:hover {
+  background-color: rgba(var(--v-theme-primary), 0.08);
+}
+
+.month-day--today {
+  background-color: rgba(33, 150, 243, 0.1);
+  border: 2px solid #2196F3;
+  color: #1976D2;
+}
+
+.month-day--selected {
+  background-color: rgba(76, 175, 80, 0.2);
+  border: 2px solid #4CAF50;
+  color: #2E7D32;
+}
+
+.month-day--today.month-day--selected {
+  background-color: rgba(156, 39, 176, 0.2);
+  border: 2px solid #9C27B0;
+  color: #7B1FA2;
+}
+
+.month-day--other-month {
+  opacity: 0.3;
+}
+
+.month-day--has-plants {
+  border: 1px solid rgba(var(--v-theme-success), 0.3);
+}
+
+.month-day--today.month-day--has-plants {
+  border: 2px solid #2196F3;
+}
+
+.month-day--selected.month-day--has-plants {
+  border: 2px solid #4CAF50;
+}
+
+.month-day-number {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.month-plant-indicator {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+}
+
 @media (max-width: 600px) {
   .calendar-day {
     padding: 8px 4px;
@@ -320,6 +513,14 @@ onMounted(() => {
   
   .calendar-days {
     gap: 4px;
+  }
+  
+  .month-day {
+    min-height: 35px;
+  }
+  
+  .month-day-number {
+    font-size: 0.75rem;
   }
 }
 </style>

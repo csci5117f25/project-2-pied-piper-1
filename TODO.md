@@ -107,15 +107,15 @@
 **Assignee: [Team Member Name]**
 
 - [ ] **Home Dashboard**
-  - [ ] Calendar widget showing current week
+  - [x] Calendar widget showing current week ✅ 
   - [x] "Plants to water today" section ✅ 
   - [x] Weather widget placeholder ✅ 
   - [x] User profile icon and navigation 
 - [ ] **Calendar Component**
-  - [ ] Weekly view with date navigation
-  - [ ] Monthly view option
-  - [ ] Display plants needing water each day
-  - [ ] Visual indicators for care tasks
+  - [x] Weekly view with date navigation ✅
+  - [x] Monthly view option ✅
+  - [x] Display plants needing water each day ✅
+  - [x] Visual indicators for care tasks ✅
 - [ ] **Watering Reminder System**
   - [ ] Calculate next watering dates
   - [ ] Daily task generation
