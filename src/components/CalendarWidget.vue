@@ -131,9 +131,10 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { getPlantsForDate } from '@/utils/watering.js'
 
 // Props
-const props = defineProps({
+const { plants = [] } = defineProps({
   plants: {
     type: Array,
     default: () => []
@@ -150,18 +151,24 @@ const currentMonth = ref(new Date())
 const selectedDate = ref(new Date())
 const plantCounts = ref(new Map()) // Store stable plant counts
 
-// Helper function to get stable plant count for a date
-const getPlantCount = (dateString) => {
-  if (!plantCounts.value.has(dateString)) {
-    // Generate stable count based on date string hash
-    const hash = dateString.split('').reduce((a, b) => {
-      a = ((a << 5) - a) + b.charCodeAt(0)
-      return a & a
-    }, 0)
-    const count = Math.abs(hash) % 4 // 0-3 plants per day
-    plantCounts.value.set(dateString, count)
+// Helper function to get real plant count for a date
+const getPlantCount = (date) => {
+  if (!plants || plants.length === 0) {
+    // Fallback to stable fake data if no plants
+    const dateString = date.toISOString().split('T')[0]
+    if (!plantCounts.value.has(dateString)) {
+      const hash = dateString.split('').reduce((a, b) => {
+        a = ((a << 5) - a) + b.charCodeAt(0)
+        return a & a
+      }, 0)
+      const count = Math.abs(hash) % 4
+      plantCounts.value.set(dateString, count)
+    }
+    return plantCounts.value.get(dateString)
   }
-  return plantCounts.value.get(dateString)
+  
+  // Use real plant data
+  return getPlantsForDate(plants, date).length
 }
 
 // Computed properties
@@ -187,7 +194,7 @@ const weekDays = computed(() => {
       }),
       isToday: date.toDateString() === today.toDateString(),
       isSelected: date.toDateString() === selectedDate.value.toDateString(),
-      plantCount: getPlantCount(dateString)
+      plantCount: getPlantCount(date)
     })
   }
   
@@ -224,7 +231,6 @@ const monthDays = computed(() => {
   const days = []
   const today = new Date()
   const firstDay = new Date(currentMonth.value.getFullYear(), currentMonth.value.getMonth(), 1)
-  const lastDay = new Date(currentMonth.value.getFullYear(), currentMonth.value.getMonth() + 1, 0)
   
   // Start from the first Sunday of the calendar
   const startDate = new Date(firstDay)
