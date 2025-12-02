@@ -108,9 +108,9 @@
 
 - [ ] **Home Dashboard**
   - [ ] Calendar widget showing current week
-  - [ ] "Plants to water today" section
-  - [ ] Weather widget placeholder
-  - [ ] User profile icon and navigation
+  - [x] "Plants to water today" section ✅ 
+  - [x] Weather widget placeholder ✅ 
+  - [x] User profile icon and navigation 
 - [ ] **Calendar Component**
   - [ ] Weekly view with date navigation
   - [ ] Monthly view option
@@ -133,8 +133,8 @@
 **Assignee: [Team Member Name]**
 
 - [ ] **Vuetify Theming**
-  - [ ] Custom plant-themed color palette
-  - [ ] Material Design components integration
+  - [x] Custom plant-themed color palette ✅
+  - [x] Material Design components integration ✅
   - [ ] Dark/light theme support
   - [ ] Custom plant icons and illustrations
 - [ ] **Mobile Responsiveness**
