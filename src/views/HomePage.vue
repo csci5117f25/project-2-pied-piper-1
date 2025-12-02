@@ -3,21 +3,14 @@
     <!-- Header with Weather and Profile -->
     <v-row class="mb-4">
       <v-col cols="12" md="8">
-        <!-- Weather Widget -->
-        <v-card class="weather-card" elevation="2">
-          <v-card-text class="pa-4">
-            <div class="d-flex align-center">
-              <v-icon size="40" color="warning" class="mr-3"> mdi-weather-sunny </v-icon>
-              <div>
-                <div class="text-h6 font-weight-bold">22°C - Sunny</div>
-                <div class="text-body-2 text-medium-emphasis">
-                  <v-icon size="16" class="mr-1">mdi-map-marker</v-icon>
-                  Minneapolis, MN
-                </div>
-              </div>
-            </div>
-          </v-card-text>
-        </v-card>
+        <!-- Enhanced Weather Widget -->
+        <WeatherWidget 
+          :temperature="22" 
+          condition="Sunny" 
+          location="Minneapolis, MN"
+          :humidity="65"
+          :wind-speed="8"
+        />
       </v-col>
 
       <v-col cols="12" md="4" class="text-right">
@@ -145,6 +138,7 @@ import { ref, computed, onMounted } from 'vue'
 import { onAuthStateChanged } from 'firebase/auth'
 import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore'
 import { auth, db } from '@/firebase'
+import WeatherWidget from '@/components/WeatherWidget.vue'
 
 // Reactive data
 const user = ref(null)
@@ -238,9 +232,7 @@ const skipPlantWatering = async (plant) => {
   padding-bottom: 100px; /* Account for bottom navigation */
 }
 
-.weather-card {
-  border-radius: 12px !important;
-}
+
 
 .calendar-strip {
   overflow-x: auto;
