@@ -255,7 +255,7 @@ const monthDays = computed(() => {
       isToday: date.toDateString() === today.toDateString(),
       isSelected: date.toDateString() === selectedDate.value.toDateString(),
       isOtherMonth: date.getMonth() !== currentMonth.value.getMonth(),
-      plantCount: getPlantCount(dateString)
+      plantCount: getPlantCount(date)
     })
   }
   
