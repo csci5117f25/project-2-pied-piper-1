@@ -232,6 +232,7 @@ onMounted(() => {
   transition: all 0.2s ease;
   min-height: 80px;
   position: relative;
+  border: 1px solid rgba(0, 0, 0, 0.1); /* Default light border for all days */
 }
 
 .calendar-day:hover {
