@@ -453,7 +453,7 @@ const deletePlant = async () => {
         await addDoc(collection(db, 'users', uid, 'activities'), {
           type: 'plant_deleted',
           title: 'Plant Deleted',
-          description: `Deleted ${plant?.nickname || ''} from your collection`,
+          description: `Deleted ${plant.value?.nickname || ''} from your collection`,
           plantId: route.params.id,
           timestamp: new Date(),
           userId: uid,

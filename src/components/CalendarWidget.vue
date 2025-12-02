@@ -132,13 +132,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 
-// Props
-const { plants = [] } = defineProps({
-  plants: {
-    type: Array,
-    default: () => []
-  }
-})
+// Props (none currently used)
 
 // Emits
 const emit = defineEmits(['day-selected'])
