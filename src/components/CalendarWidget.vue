@@ -131,7 +131,6 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { getPlantsForDate } from '@/utils/watering.js'
 
 // Props
 const { plants = [] } = defineProps({
@@ -151,24 +150,19 @@ const currentMonth = ref(new Date())
 const selectedDate = ref(new Date())
 const plantCounts = ref(new Map()) // Store stable plant counts
 
-// Helper function to get real plant count for a date
+// Helper function to get plant count for a date (placeholder)
 const getPlantCount = (date) => {
-  if (!plants || plants.length === 0) {
-    // Fallback to stable fake data if no plants
-    const dateString = date.toISOString().split('T')[0]
-    if (!plantCounts.value.has(dateString)) {
-      const hash = dateString.split('').reduce((a, b) => {
-        a = ((a << 5) - a) + b.charCodeAt(0)
-        return a & a
-      }, 0)
-      const count = Math.abs(hash) % 4
-      plantCounts.value.set(dateString, count)
-    }
-    return plantCounts.value.get(dateString)
+  // Generate stable fake data for demo purposes
+  const dateString = date.toISOString().split('T')[0]
+  if (!plantCounts.value.has(dateString)) {
+    const hash = dateString.split('').reduce((a, b) => {
+      a = ((a << 5) - a) + b.charCodeAt(0)
+      return a & a
+    }, 0)
+    const count = Math.abs(hash) % 4
+    plantCounts.value.set(dateString, count)
   }
-  
-  // Use real plant data
-  return getPlantsForDate(plants, date).length
+  return plantCounts.value.get(dateString)
 }
 
 // Computed properties
