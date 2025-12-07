@@ -288,7 +288,7 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { doc, getDoc, updateDoc, deleteDoc, increment, collection, addDoc } from 'firebase/firestore'
-import { handlePlantRemoved } from '@/utils/achievements'
+import { handlePlantRemoved, handlePlantWatered, handleAllPlantsHealthy } from '@/utils/achievements'
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { onAuthStateChanged } from 'firebase/auth'
 import { auth, db, storage } from '@/firebase'
@@ -480,6 +480,17 @@ const waterPlant = async () => {
       lastWatered: new Date(),
     })
     plant.value.lastWatered = new Date()
+
+    // Update achievements
+    const uid = auth.currentUser?.uid
+    if (uid) {
+      handlePlantWatered(uid).catch((err) => {
+        console.error('Failed to update achievements after watering:', err)
+      })
+      handleAllPlantsHealthy(uid).catch((err) => {
+        console.error('Failed to update Green Thumb achievement:', err)
+      })
+    }
   } catch (error) {
     console.error('Error updating watering:', error)
   }

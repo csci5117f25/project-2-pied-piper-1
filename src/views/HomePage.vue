@@ -114,6 +114,7 @@ import { ref, computed, onMounted } from 'vue'
 import { onAuthStateChanged } from 'firebase/auth'
 import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore'
 import { auth, db } from '@/firebase'
+import { handlePlantWatered, handleAllPlantsHealthy } from '@/utils/achievements'
 import WeatherWidget from '@/components/WeatherWidget.vue'
 import CalendarWidget from '@/components/CalendarWidget.vue'
 
@@ -270,6 +271,18 @@ const completePlantWatering = async (plant) => {
     await updateDoc(plantRef, {
       lastWatered: new Date(),
     })
+    
+    // Update achievements
+    const uid = auth.currentUser?.uid
+    if (uid) {
+      handlePlantWatered(uid).catch((err) => {
+        console.error('Failed to update achievements after watering:', err)
+      })
+      handleAllPlantsHealthy(uid).catch((err) => {
+        console.error('Failed to update Green Thumb achievement:', err)
+      })
+    }
+    
     showSuccess.value = true
     successMessage.value = `${plant.nickname} watered! 💧`
   } catch (error) {

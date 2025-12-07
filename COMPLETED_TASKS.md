@@ -116,6 +116,107 @@ This document tracks the tasks completed during development.
 
 ---
 
+## Task 7: Added Date-Based Filtering for Plants to Water Section
+
+**Issue:** The "Plants to Water Today" section always showed today's plants, even when users selected different dates in the calendar. Users couldn't see which plants need watering on future dates.
+
+**Root Cause:** The `plantsToday` computed property was hardcoded to check if plants need watering "today" using the current date, regardless of which date was selected in the calendar.
+
+**Solution:**
+- Updated `needsWateringOnDate()` function to accept a target date parameter
+- Modified `plantsToday` computed property to filter plants based on the `selectedDate` instead of always using today
+- Added dynamic section title that shows "Plants to Water Today" for today or "Plants to Water on [Date]" for other dates
+- Updated empty state message to reflect the selected date
+- Calendar day selection now properly filters the plants list below
+
+**Files Modified:**
+- `src/views/HomePage.vue`
+
+**Date Completed:** Current session
+
+---
+
+## Task 8: Enhanced "Today" Button Functionality
+
+**Issue:** When clicking the "Today" button in the calendar, it didn't switch to weekly view if the user was in monthly view, and it didn't always properly update the plants list.
+
+**Root Cause:** The `goToToday()` function only updated the calendar dates but didn't change the view mode or emit the day-selected event consistently.
+
+**Solution:**
+- Modified `goToToday()` to automatically switch to weekly view when clicked
+- Ensured the function emits a `day-selected` event with today's information
+- This provides a consistent experience: clicking "Today" always shows the weekly view with today's plants filtered
+
+**Files Modified:**
+- `src/components/CalendarWidget.vue`
+
+**Date Completed:** Current session
+
+---
+
+## Task 9: Removed Redundant Selected Day Info Section
+
+**Issue:** The calendar widget displayed a "Selected Day Info" section at the bottom showing the selected date and plant count, which provided no additional value since this information was already visible in the calendar and the filtered plants list below.
+
+**Root Cause:** The component included a redundant information display that duplicated information already available elsewhere in the UI.
+
+**Solution:**
+- Removed the "Selected Day Info" template section from the calendar widget
+- Removed the unused `selectedDay` computed property
+- Removed unused CSS for `.selected-day-info`
+- This cleaned up the UI and removed redundant information
+
+**Files Modified:**
+- `src/components/CalendarWidget.vue`
+
+**Date Completed:** Current session
+
+---
+
+## Task 10: Disabled Water Buttons for Non-Today Dates
+
+**Issue:** Users could click the water buttons (complete/skip) even when viewing past or future dates in the calendar, which doesn't make logical sense since you can only water plants on the current day.
+
+**Root Cause:** The water action buttons didn't check if the selected date was today before allowing actions.
+
+**Solution:**
+- Added `:disabled="!isSelectedDateToday"` to both the complete and skip water buttons
+- Buttons are now grayed out and non-functional when viewing dates other than today
+- Buttons are enabled and functional only when today is selected
+- This prevents illogical actions and provides clear visual feedback
+
+**Files Modified:**
+- `src/views/HomePage.vue`
+
+**Date Completed:** Current session
+
+---
+
+## Task 11: Implemented Achievement Progress Tracking for Watering
+
+**Issue:** Achievement progress (Water Warrior, Consistent Caretaker, Green Thumb) was not updating when users watered their plants. The achievements showed 0/5, 0/7, and 0/30 with no progress being tracked.
+
+**Root Cause:** The watering functions (`completePlantWatering`, `waterPlant`) in HomePage, MyPlantsPage, and PlantDetailPage were only updating the plant's `lastWatered` field but never called any achievement update functions. The achievement tracking functions didn't exist in the codebase.
+
+**Solution:**
+- Created `handlePlantWatered()` function to track Water Warrior (5 days in a row) and Consistent Caretaker (7 days straight) achievements
+- Created `handleAllPlantsHealthy()` function to track Green Thumb (keep all plants healthy for 30 days) achievement
+- Added achievement update calls to all watering functions across the app
+- Implemented logic to only increment achievements when ALL tasks for the day are completed (all plants that need watering have been watered, or all plants are healthy)
+- Added `checkDailyAchievementReset()` function that runs when viewing Rewards page to reset progress if tasks weren't completed by end of day
+- Fixed logic to properly check for pending watering tasks by checking if plants need watering AND haven't been watered today
+
+**Files Modified:**
+- `src/utils/achievements.js`
+- `src/views/HomePage.vue`
+- `src/views/MyPlantsPage.vue`
+- `src/views/PlantDetailPage.vue`
+- `src/views/RewardsPage.vue`
+
+**Date Completed:** Current session
+
+---
+
 ## Summary
 
 All tasks focused on improving user experience and data accuracy:
@@ -125,4 +226,9 @@ All tasks focused on improving user experience and data accuracy:
 4. **Data Integrity:** Calendar now shows real plant counts instead of random numbers
 5. **Precision:** Calendar shows plants only on their exact watering days, not every day
 6. **Visual Consistency:** Monthly calendar view now matches weekly view by showing plant count numbers
+7. **Date Navigation:** Users can now view and filter plants for any selected date
+8. **User Experience:** "Today" button provides consistent navigation to weekly view with today's plants
+9. **UI Cleanup:** Removed redundant information display from calendar widget
+10. **Action Validation:** Water buttons are disabled for dates other than today to prevent illogical actions
+11. **Achievement Tracking:** Implemented proper progress tracking for watering-related achievements that only increments when all daily tasks are completed
 

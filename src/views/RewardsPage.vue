@@ -203,6 +203,7 @@ import { ref, computed, onMounted } from 'vue'
 import { onAuthStateChanged } from 'firebase/auth'
 import { doc, getDoc, collection, getDocs, query, orderBy, limit, where } from 'firebase/firestore'
 import { auth, db } from '@/firebase'
+import { checkDailyAchievementReset } from '@/utils/achievements'
 
 // User stats
 const userStats = ref({
@@ -376,6 +377,8 @@ const formatTime = (date) => {
 onMounted(() => {
   onAuthStateChanged(auth, async (user) => {
     if (user) {
+      // Check and reset achievements if tasks weren't completed
+      await checkDailyAchievementReset(user.uid)
       await loadUserStats(user.uid)
       await loadUserAchievements(user.uid)
       await loadRecentActivities(user.uid)

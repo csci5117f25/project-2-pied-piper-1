@@ -179,7 +179,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { onAuthStateChanged } from 'firebase/auth'
 import { collection, query, where, onSnapshot, doc, deleteDoc, updateDoc, increment, addDoc } from 'firebase/firestore'
-import { handlePlantRemoved } from '@/utils/achievements'
+import { handlePlantRemoved, handlePlantWatered, handleAllPlantsHealthy } from '@/utils/achievements'
 import { auth, db } from '@/firebase'
 import AddPlantDialog from '@/components/AddPlantDialog.vue'
 import EditPlantDialog from '@/components/EditPlantDialog.vue'
@@ -311,11 +311,21 @@ const openPlantDetail = (plant) => {
 
 const waterPlant = async (plant) => {
   try {
-    // TODO: Update watering date in Firestore
     const plantRef = doc(db, 'plants', plant.id)
     await updateDoc(plantRef, {
       lastWatered: new Date(),
     })
+
+    // Update achievements
+    const uid = auth.currentUser?.uid
+    if (uid) {
+      handlePlantWatered(uid).catch((err) => {
+        console.error('Failed to update achievements after watering:', err)
+      })
+      handleAllPlantsHealthy(uid).catch((err) => {
+        console.error('Failed to update Green Thumb achievement:', err)
+      })
+    }
 
     showSuccess.value = true
     successMessage.value = `${plant.nickname} watered! 💧`
