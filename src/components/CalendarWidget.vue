@@ -118,20 +118,6 @@
           </div>
         </div>
       </div>
-
-      <!-- Selected Day Info -->
-      <div v-if="selectedDay" class="selected-day-info mt-4">
-        <v-divider class="mb-3"></v-divider>
-        <div class="text-subtitle-2 mb-2">
-          {{ selectedDay.fullDate }}
-        </div>
-        <div v-if="selectedDay.plantCount > 0" class="text-body-2 text-medium-emphasis">
-          {{ selectedDay.plantCount }} plant{{ selectedDay.plantCount > 1 ? 's' : '' }} need{{ selectedDay.plantCount === 1 ? 's' : '' }} attention
-        </div>
-        <div v-else class="text-body-2 text-medium-emphasis">
-          No plants need attention today
-        </div>
-      </div>
     </v-card-text>
   </v-card>
 </template>
@@ -329,23 +315,31 @@ const monthDays = computed(() => {
   return days
 })
 
-const selectedDay = computed(() => {
-  // Check both week and month views for the selected day
-  const weekDay = weekDays.value.find(day => day.isSelected)
-  if (weekDay) return weekDay
-  
-  const monthDay = monthDays.value.find(day => day.isSelected)
-  if (monthDay) return monthDay
-  
-  return null
-})
-
 // Methods
 const goToToday = () => {
   const today = new Date()
   setWeekStart(today)
   setMonthStart(today)
   selectedDate.value = today
+  
+  // Switch to weekly view when clicking Today
+  viewMode.value = 'week'
+  
+  // Emit day-selected event with today's day info
+  const todayString = today.toISOString().split('T')[0]
+  const dayInfo = {
+    date: today,
+    dateString: todayString,
+    fullDate: today.toLocaleDateString('en-US', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    }),
+    isToday: true,
+    plantCount: getPlantCount(today)
+  }
+  emit('day-selected', dayInfo)
 }
 
 const previousWeek = () => {
@@ -484,12 +478,6 @@ onMounted(() => {
 .plant-count-chip {
   font-size: 0.7rem !important;
   height: 18px !important;
-}
-
-.selected-day-info {
-  background-color: rgba(var(--v-theme-surface), 0.5);
-  border-radius: 8px;
-  padding: 12px;
 }
 
 /* Month View Styles */
