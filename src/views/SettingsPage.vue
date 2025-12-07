@@ -169,32 +169,17 @@
       </v-col>
     </v-row>
 
-    <!-- Data & Privacy -->
+    <!-- Account -->
     <v-row class="mb-6">
       <v-col cols="12">
         <v-card elevation="2">
           <v-card-title>
             <v-icon class="mr-2">mdi-shield-account</v-icon>
-            Data & Privacy
+            Account
           </v-card-title>
 
           <v-card-text class="pa-0">
             <v-list>
-              <v-list-item @click="exportData">
-                <template #prepend>
-                  <v-icon>mdi-download</v-icon>
-                </template>
-
-                <v-list-item-title>Export My Data</v-list-item-title>
-                <v-list-item-subtitle> Download all your plant data </v-list-item-subtitle>
-
-                <template #append>
-                  <v-icon>mdi-chevron-right</v-icon>
-                </template>
-              </v-list-item>
-
-              <v-divider />
-
               <v-list-item @click="showDeleteDialog = true">
                 <template #prepend>
                   <v-icon color="error">mdi-delete</v-icon>
@@ -458,13 +443,6 @@ const saveProfile = async () => {
   }
 }
 
-// Data actions
-const exportData = () => {
-  // TODO: Implement data export
-  showSuccess.value = true
-  successMessage.value = 'Data export started - check your downloads'
-}
-
 const deleteAccount = async () => {
   try {
     if (user.value) {
@@ -484,7 +462,7 @@ const openHelp = () => {
 }
 
 const sendFeedback = () => {
-  window.open('mailto:support@plantcaretracker.com?subject=Feedback', '_blank')
+  window.open('mailto:umesh006@umn.edu?subject=Feedback_Plant_Tacker', '_blank')
 }
 
 // Logout

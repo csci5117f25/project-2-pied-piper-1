@@ -72,10 +72,10 @@
             <div class="mb-3">
               <div class="d-flex justify-space-between text-body-2 mb-1">
                 <span>Level {{ currentLevel.level }}</span>
-                <span>{{ userStats.currentXP }} / {{ currentLevel.xpRequired }} XP</span>
+                <span>{{ totalXP }} / {{ currentLevel.xpRequired }} XP</span>
               </div>
               <v-progress-linear
-                :model-value="(userStats.currentXP / currentLevel.xpRequired) * 100"
+                :model-value="(totalXP / currentLevel.xpRequired) * 100"
                 height="8"
                 color="primary"
                 rounded
@@ -84,7 +84,7 @@
 
             <!-- Next Level Preview -->
             <div class="text-body-2 text-medium-emphasis">
-              Next: {{ nextLevel.name }} ({{ currentLevel.xpRequired - userStats.currentXP }} XP
+              Next: {{ nextLevel.name }} ({{ Math.max(0, currentLevel.xpRequired - totalXP) }} XP
               needed)
             </div>
           </v-card-text>
@@ -201,7 +201,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { onAuthStateChanged } from 'firebase/auth'
-import { doc, getDoc, collection, getDocs, query, orderBy, limit, where } from 'firebase/firestore'
+import { collection, getDocs, query, orderBy, limit, where } from 'firebase/firestore'
 import { auth, db } from '@/firebase'
 import { checkDailyAchievementReset } from '@/utils/achievements'
 
@@ -253,10 +253,17 @@ const levels = [
   },
 ]
 
+// Calculate total XP from all unlocked achievements
+const totalXP = computed(() => {
+  return achievements.value
+    .filter(a => a.unlocked)
+    .reduce((sum, a) => sum + (a.xpReward || 0), 0)
+})
+
 const currentLevel = computed(() => {
   let level = levels[0]
   for (const l of levels) {
-    if (userStats.value.currentXP >= l.xpRequired) {
+    if (totalXP.value >= l.xpRequired) {
       level = l
     } else {
       break
@@ -377,30 +384,34 @@ const formatTime = (date) => {
 onMounted(() => {
   onAuthStateChanged(auth, async (user) => {
     if (user) {
-      // Check and reset achievements if tasks weren't completed
-      await checkDailyAchievementReset(user.uid)
-      await loadUserStats(user.uid)
-      await loadUserAchievements(user.uid)
-      await loadRecentActivities(user.uid)
+      // Run independent operations in parallel for faster loading
+      await Promise.all([
+        checkDailyAchievementReset(user.uid),
+        loadUserStatsAndAchievements(user.uid),
+        loadRecentActivities(user.uid)
+      ])
     }
   })
 })
 
-// Load user stats from Firestore
-const loadUserStats = async (userId) => {
+// Helper to parse Firestore Timestamp or ISO string
+const parseUnlockedDate = (val) => {
+  if (!val) return null
+  if (val.toDate) return val.toDate()
+  if (typeof val === 'string') return new Date(val)
+  try { return new Date(val) } catch { return null }
+}
+
+// Load user stats and achievements from Firestore (optimized - parallel queries)
+const loadUserStatsAndAchievements = async (userId) => {
   try {
-    // Get user data
-    const userRef = doc(db, 'users', userId)
-    const userDoc = await getDoc(userRef)
+    // Run all independent queries in parallel
+    const [plantsSnap, achievementsSnap] = await Promise.all([
+      getDocs(query(collection(db, 'plants'), where('userId', '==', userId))),
+      getDocs(collection(db, 'users', userId, 'achievements'))
+    ])
     
-    // Count plants
-    const plantsRef = collection(db, 'plants')
-    const plantsQuery = query(plantsRef, where('userId', '==', userId))
-    const plantsSnap = await getDocs(plantsQuery)
-    
-    // Count unlocked achievements and get watering streak
-    const achievementsRef = collection(db, 'users', userId, 'achievements')
-    const achievementsSnap = await getDocs(achievementsRef)
+    // Process achievements data once
     const unlockedCount = achievementsSnap.docs.filter(doc => doc.data().unlocked).length
     
     // Calculate watering streak from Water Warrior achievement
@@ -418,8 +429,6 @@ const loadUserStats = async (userId) => {
         lastDate.setHours(0, 0, 0, 0)
         const daysDiff = Math.floor((today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24))
         
-        // If last completed was today or yesterday, use the progress
-        // If it was more than 1 day ago, streak is broken (0)
         if (daysDiff === 0 || daysDiff === 1) {
           wateringStreak = progress
         } else {
@@ -430,54 +439,20 @@ const loadUserStats = async (userId) => {
       }
     }
     
-    if (userDoc.exists()) {
-      const userData = userDoc.data()
-      userStats.value = {
-        totalPlants: plantsSnap.size,
-        wateringStreak: wateringStreak,
-        achievementsUnlocked: unlockedCount,
-        currentXP: userData.currentXP || 0,
-        totalXP: userData.totalXP || 0,
-      }
-    } else {
-      userStats.value = {
-        totalPlants: plantsSnap.size,
-        wateringStreak: wateringStreak,
-        achievementsUnlocked: unlockedCount,
-        currentXP: 0,
-        totalXP: 0,
-      }
-    }
-  } catch (error) {
-    console.error('Error loading user stats:', error)
-  }
-}
-
-// Load user achievements from Firestore
-const loadUserAchievements = async (userId) => {
-  try {
-    const achievementsRef = collection(db, 'users', userId, 'achievements')
-    const achievementsSnap = await getDocs(achievementsRef)
-    
+    // Update achievements list first (needed for XP calculation)
     achievementsSnap.forEach((doc) => {
       const achievementData = doc.data()
-  const achievement = achievements.value.find(a => a.id === doc.id || a.id === achievementData.id)
-
-      // Helper to parse Firestore Timestamp or ISO string
-      const parseUnlockedDate = (val) => {
-        if (!val) return null
-        if (val.toDate) return val.toDate()
-        if (typeof val === 'string') return new Date(val)
-        try { return new Date(val) } catch { return null }
-      }
+      const achievement = achievements.value.find(a => a.id === doc.id || a.id === achievementData.id)
 
       if (achievement) {
         achievement.progress = (typeof achievementData.progress === 'number') ? achievementData.progress : (achievementData.progress || 0)
         achievement.unlocked = !!achievementData.unlocked
         achievement.unlockedDate = parseUnlockedDate(achievementData.unlockedDate)
+        // Update xpReward from Firestore if available (in case it was changed)
+        if (achievementData.xpReward !== undefined) {
+          achievement.xpReward = achievementData.xpReward
+        }
       } else {
-        // If there's an achievement doc in Firestore that isn't in the local list,
-        // add it so user-specific achievements show up.
         achievements.value.push({
           id: doc.id,
           name: achievementData.name || doc.id,
@@ -492,8 +467,17 @@ const loadUserAchievements = async (userId) => {
         })
       }
     })
+    
+    // Update user stats (XP is now calculated from achievements, not stored)
+    userStats.value = {
+      totalPlants: plantsSnap.size,
+      wateringStreak: wateringStreak,
+      achievementsUnlocked: unlockedCount,
+      currentXP: 0, // Not used anymore - calculated from achievements
+      totalXP: 0, // Not used anymore - calculated from achievements
+    }
   } catch (error) {
-    console.error('Error loading achievements:', error)
+    console.error('Error loading user stats and achievements:', error)
   }
 }
 
