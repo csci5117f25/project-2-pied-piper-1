@@ -406,8 +406,7 @@ const parseUnlockedDate = (val) => {
 const loadUserStatsAndAchievements = async (userId) => {
   try {
     // Run all independent queries in parallel
-    const [userDoc, plantsSnap, achievementsSnap] = await Promise.all([
-      getDoc(doc(db, 'users', userId)),
+    const [plantsSnap, achievementsSnap] = await Promise.all([
       getDocs(query(collection(db, 'plants'), where('userId', '==', userId))),
       getDocs(collection(db, 'users', userId, 'achievements'))
     ])
@@ -470,7 +469,6 @@ const loadUserStatsAndAchievements = async (userId) => {
     })
     
     // Update user stats (XP is now calculated from achievements, not stored)
-    const userData = userDoc.exists() ? userDoc.data() : null
     userStats.value = {
       totalPlants: plantsSnap.size,
       wateringStreak: wateringStreak,
