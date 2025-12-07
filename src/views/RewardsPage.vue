@@ -201,7 +201,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { onAuthStateChanged } from 'firebase/auth'
-import { doc, getDoc, collection, getDocs, query, orderBy, limit, where } from 'firebase/firestore'
+import { collection, getDocs, query, orderBy, limit, where } from 'firebase/firestore'
 import { auth, db } from '@/firebase'
 import { checkDailyAchievementReset } from '@/utils/achievements'
 
