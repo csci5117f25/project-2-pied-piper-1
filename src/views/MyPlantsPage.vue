@@ -265,29 +265,34 @@ const needsWatering = (plant) => {
   const now = new Date()
   const daysSinceWatering = Math.floor((now - lastWateredDate) / (1000 * 60 * 60 * 24))
 
-  // Determine days based on watering frequency
-  let daysUntilNextWatering
-  switch (plant.wateringFrequency) {
-    case 'daily':
-      daysUntilNextWatering = 1
-      break
-    case 'frequent':
-      daysUntilNextWatering = 2.5 // Average of 2-3 days
-      break
-    case 'weekly':
-      daysUntilNextWatering = 7
-      break
-    case 'biweekly':
-      daysUntilNextWatering = 14
-      break
-    case 'monthly':
-      daysUntilNextWatering = 30
-      break
-    default:
-      daysUntilNextWatering = 7 // Default to weekly
+  // Handle different watering frequencies
+  if (plant.wateringFrequency === 'daily') {
+    return daysSinceWatering >= 1
+  } else if (plant.wateringFrequency === 'alternate-days') {
+    // Every other day (every 2 days)
+    return daysSinceWatering >= 1 && daysSinceWatering % 2 === 0
+  } else if (plant.wateringFrequency === 'custom') {
+    // Custom frequency - use customWateringDays
+    const daysUntilNextWatering = plant.customWateringDays || 7
+    return daysSinceWatering >= daysUntilNextWatering
+  } else {
+    // Weekly, biweekly, monthly
+    let daysUntilNextWatering
+    switch (plant.wateringFrequency) {
+      case 'weekly':
+        daysUntilNextWatering = 7
+        break
+      case 'biweekly':
+        daysUntilNextWatering = 14
+        break
+      case 'monthly':
+        daysUntilNextWatering = 30
+        break
+      default:
+        daysUntilNextWatering = 7 // Default to weekly
+    }
+    return daysSinceWatering >= daysUntilNextWatering
   }
-
-  return daysSinceWatering >= daysUntilNextWatering
 }
 
 const getPlantStatus = (plant) => {

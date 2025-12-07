@@ -369,7 +369,7 @@ const plantTypes = [
 
 const wateringOptions = [
   { title: 'Daily', value: 'daily' },
-  { title: 'Every 2-3 days', value: 'frequent' },
+  { title: 'Alternate Days', value: 'alternate-days' },
   { title: 'Weekly', value: 'weekly' },
   { title: 'Bi-weekly', value: 'biweekly' },
   { title: 'Monthly', value: 'monthly' },

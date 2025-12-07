@@ -156,45 +156,41 @@ const needsWateringOnDate = (plant, targetDate) => {
   
   const daysSinceWatering = Math.floor((target - lastWateredDate) / (1000 * 60 * 60 * 24))
 
-  // Determine days based on watering frequency
-  let daysUntilNextWatering
-  switch (plant.wateringFrequency) {
-    case 'daily':
-      daysUntilNextWatering = 1
-      break
-    case 'frequent':
-      daysUntilNextWatering = 2.5 // Average of 2-3 days
-      break
-    case 'weekly':
-      daysUntilNextWatering = 7
-      break
-    case 'biweekly':
-      daysUntilNextWatering = 14
-      break
-    case 'monthly':
-      daysUntilNextWatering = 30
-      break
-    default:
-      daysUntilNextWatering = 7 // Default to weekly
-  }
-
   // Check if the target date falls exactly on a watering day
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const isToday = target.getTime() === today.getTime()
   
-  // For daily: every day after the first day
+  // Handle different watering frequencies
   if (plant.wateringFrequency === 'daily') {
     return daysSinceWatering >= 1
-  }
-  // For frequent (2-3 days): show on days 2, 3, 5, 6, 8, 9, etc.
-  else if (plant.wateringFrequency === 'frequent') {
-    if (daysSinceWatering < 2) return false
-    // Show if it's been 2 days, 3 days, or any combination that's a multiple of 2 or 3
-    return daysSinceWatering % 2 === 0 || daysSinceWatering % 3 === 0
-  }
-  // For weekly, biweekly, monthly: show only on exact interval days
-  else {
+  } else if (plant.wateringFrequency === 'alternate-days') {
+    // Every other day (every 2 days)
+    return daysSinceWatering >= 1 && daysSinceWatering % 2 === 0
+  } else if (plant.wateringFrequency === 'custom') {
+    // Custom frequency - use customWateringDays
+    const daysUntilNextWatering = plant.customWateringDays || 7
+    if (isToday && daysSinceWatering >= daysUntilNextWatering) {
+      return true
+    }
+    return daysSinceWatering >= daysUntilNextWatering && daysSinceWatering % daysUntilNextWatering === 0
+  } else {
+    // Weekly, biweekly, monthly
+    let daysUntilNextWatering
+    switch (plant.wateringFrequency) {
+      case 'weekly':
+        daysUntilNextWatering = 7
+        break
+      case 'biweekly':
+        daysUntilNextWatering = 14
+        break
+      case 'monthly':
+        daysUntilNextWatering = 30
+        break
+      default:
+        daysUntilNextWatering = 7 // Default to weekly
+    }
+    
     // If the plant is overdue (daysSinceWatering > interval), show it on today
     if (isToday && daysSinceWatering >= daysUntilNextWatering) {
       return true

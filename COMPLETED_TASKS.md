@@ -217,6 +217,33 @@ This document tracks the tasks completed during development.
 
 ---
 
+## Task 12: Standardized Watering Frequency Options Across Dialogs
+
+**Issue:** The "Add New Plant" and "Edit Plant" dialogs had inconsistent watering frequency options. The "Add Plant" dialog had "Every 2-3 days" while the "Edit Plant" dialog didn't have this option. Additionally, the "Edit Plant" dialog was missing the "Custom" option.
+
+**Root Cause:** The two dialogs were using different `wateringOptions` arrays with different values and labels, causing confusion and inconsistency in the user experience.
+
+**Solution:**
+- Standardized both dialogs to use the same watering frequency options: Daily, Alternate Days, Weekly, Bi-weekly, Monthly, Custom
+- Replaced "Every 2-3 days" (value: 'frequent') with "Alternate Days" (value: 'alternate-days') for clearer naming
+- Updated all logic functions across the app to handle 'alternate-days' instead of 'frequent'
+- Added "Custom" option and custom watering days field to EditPlantDialog for consistency
+- Updated all watering frequency logic in achievements.js, HomePage.vue, MyPlantsPage.vue, CalendarWidget.vue, and PlantDetailPage.vue to support the new options
+- Implemented proper logic for alternate days (every 2 days) and custom frequency (uses customWateringDays value)
+
+**Files Modified:**
+- `src/components/AddPlantDialog.vue`
+- `src/components/EditPlantDialog.vue`
+- `src/views/PlantDetailPage.vue`
+- `src/utils/achievements.js`
+- `src/views/HomePage.vue`
+- `src/views/MyPlantsPage.vue`
+- `src/components/CalendarWidget.vue`
+
+**Date Completed:** Current session
+
+---
+
 ## Summary
 
 All tasks focused on improving user experience and data accuracy:
@@ -231,4 +258,5 @@ All tasks focused on improving user experience and data accuracy:
 9. **UI Cleanup:** Removed redundant information display from calendar widget
 10. **Action Validation:** Water buttons are disabled for dates other than today to prevent illogical actions
 11. **Achievement Tracking:** Implemented proper progress tracking for watering-related achievements that only increments when all daily tasks are completed
+12. **Consistency:** Standardized watering frequency options across all dialogs (Daily, Alternate Days, Weekly, Bi-weekly, Monthly, Custom) and updated all related logic throughout the app
 

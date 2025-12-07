@@ -89,6 +89,17 @@
             class="mb-4"
           />
 
+          <v-text-field
+            v-model="form.customWateringDays"
+            v-if="form.wateringFrequency === 'custom'"
+            label="Days between watering"
+            type="number"
+            variant="outlined"
+            min="1"
+            max="365"
+            class="mb-4"
+          />
+
           <v-select
             v-model="form.lightRequirement"
             :items="lightOptions"
@@ -167,6 +178,7 @@ const form = ref({
   notes: '',
   photoURL: '',
   wateringFrequency: 'weekly',
+  customWateringDays: 7,
   lightRequirement: 'bright-indirect',
   needsFertilizer: false,
   needsPruning: false,
@@ -180,9 +192,11 @@ const plantTypes = [
 
 const wateringOptions = [
   { title: 'Daily', value: 'daily' },
+  { title: 'Alternate Days', value: 'alternate-days' },
   { title: 'Weekly', value: 'weekly' },
   { title: 'Bi-weekly', value: 'biweekly' },
-  { title: 'Monthly', value: 'monthly' }
+  { title: 'Monthly', value: 'monthly' },
+  { title: 'Custom', value: 'custom' },
 ]
 
 const lightOptions = [
@@ -206,6 +220,7 @@ watch(() => props.plant, (plant) => {
       notes: plant.notes || '',
       photoURL: plant.photoURL || '',
       wateringFrequency: plant.wateringFrequency || 'weekly',
+      customWateringDays: plant.customWateringDays || 7,
       lightRequirement: plant.lightRequirement || 'bright-indirect',
       needsFertilizer: plant.needsFertilizer || false,
       needsPruning: plant.needsPruning || false,
@@ -258,6 +273,7 @@ const updatePlant = async () => {
       notes: form.value.notes,
       photoURL,
       wateringFrequency: form.value.wateringFrequency,
+      customWateringDays: form.value.customWateringDays,
       lightRequirement: form.value.lightRequirement,
       needsFertilizer: form.value.needsFertilizer,
       needsPruning: form.value.needsPruning,
