@@ -377,30 +377,35 @@ const formatTime = (date) => {
 onMounted(() => {
   onAuthStateChanged(auth, async (user) => {
     if (user) {
-      // Check and reset achievements if tasks weren't completed
-      await checkDailyAchievementReset(user.uid)
-      await loadUserStats(user.uid)
-      await loadUserAchievements(user.uid)
-      await loadRecentActivities(user.uid)
+      // Run independent operations in parallel for faster loading
+      await Promise.all([
+        checkDailyAchievementReset(user.uid),
+        loadUserStatsAndAchievements(user.uid),
+        loadRecentActivities(user.uid)
+      ])
     }
   })
 })
 
-// Load user stats from Firestore
-const loadUserStats = async (userId) => {
+// Helper to parse Firestore Timestamp or ISO string
+const parseUnlockedDate = (val) => {
+  if (!val) return null
+  if (val.toDate) return val.toDate()
+  if (typeof val === 'string') return new Date(val)
+  try { return new Date(val) } catch { return null }
+}
+
+// Load user stats and achievements from Firestore (optimized - parallel queries)
+const loadUserStatsAndAchievements = async (userId) => {
   try {
-    // Get user data
-    const userRef = doc(db, 'users', userId)
-    const userDoc = await getDoc(userRef)
+    // Run all independent queries in parallel
+    const [userDoc, plantsSnap, achievementsSnap] = await Promise.all([
+      getDoc(doc(db, 'users', userId)),
+      getDocs(query(collection(db, 'plants'), where('userId', '==', userId))),
+      getDocs(collection(db, 'users', userId, 'achievements'))
+    ])
     
-    // Count plants
-    const plantsRef = collection(db, 'plants')
-    const plantsQuery = query(plantsRef, where('userId', '==', userId))
-    const plantsSnap = await getDocs(plantsQuery)
-    
-    // Count unlocked achievements and get watering streak
-    const achievementsRef = collection(db, 'users', userId, 'achievements')
-    const achievementsSnap = await getDocs(achievementsRef)
+    // Process achievements data once
     const unlockedCount = achievementsSnap.docs.filter(doc => doc.data().unlocked).length
     
     // Calculate watering streak from Water Warrior achievement
@@ -418,8 +423,6 @@ const loadUserStats = async (userId) => {
         lastDate.setHours(0, 0, 0, 0)
         const daysDiff = Math.floor((today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24))
         
-        // If last completed was today or yesterday, use the progress
-        // If it was more than 1 day ago, streak is broken (0)
         if (daysDiff === 0 || daysDiff === 1) {
           wateringStreak = progress
         } else {
@@ -430,54 +433,26 @@ const loadUserStats = async (userId) => {
       }
     }
     
-    if (userDoc.exists()) {
-      const userData = userDoc.data()
-      userStats.value = {
-        totalPlants: plantsSnap.size,
-        wateringStreak: wateringStreak,
-        achievementsUnlocked: unlockedCount,
-        currentXP: userData.currentXP || 0,
-        totalXP: userData.totalXP || 0,
-      }
-    } else {
-      userStats.value = {
-        totalPlants: plantsSnap.size,
-        wateringStreak: wateringStreak,
-        achievementsUnlocked: unlockedCount,
-        currentXP: 0,
-        totalXP: 0,
-      }
+    // Update user stats
+    const userData = userDoc.exists() ? userDoc.data() : null
+    userStats.value = {
+      totalPlants: plantsSnap.size,
+      wateringStreak: wateringStreak,
+      achievementsUnlocked: unlockedCount,
+      currentXP: userData?.currentXP || 0,
+      totalXP: userData?.totalXP || 0,
     }
-  } catch (error) {
-    console.error('Error loading user stats:', error)
-  }
-}
-
-// Load user achievements from Firestore
-const loadUserAchievements = async (userId) => {
-  try {
-    const achievementsRef = collection(db, 'users', userId, 'achievements')
-    const achievementsSnap = await getDocs(achievementsRef)
     
+    // Update achievements list
     achievementsSnap.forEach((doc) => {
       const achievementData = doc.data()
-  const achievement = achievements.value.find(a => a.id === doc.id || a.id === achievementData.id)
-
-      // Helper to parse Firestore Timestamp or ISO string
-      const parseUnlockedDate = (val) => {
-        if (!val) return null
-        if (val.toDate) return val.toDate()
-        if (typeof val === 'string') return new Date(val)
-        try { return new Date(val) } catch { return null }
-      }
+      const achievement = achievements.value.find(a => a.id === doc.id || a.id === achievementData.id)
 
       if (achievement) {
         achievement.progress = (typeof achievementData.progress === 'number') ? achievementData.progress : (achievementData.progress || 0)
         achievement.unlocked = !!achievementData.unlocked
         achievement.unlockedDate = parseUnlockedDate(achievementData.unlockedDate)
       } else {
-        // If there's an achievement doc in Firestore that isn't in the local list,
-        // add it so user-specific achievements show up.
         achievements.value.push({
           id: doc.id,
           name: achievementData.name || doc.id,
@@ -493,7 +468,7 @@ const loadUserAchievements = async (userId) => {
       }
     })
   } catch (error) {
-    console.error('Error loading achievements:', error)
+    console.error('Error loading user stats and achievements:', error)
   }
 }
 
