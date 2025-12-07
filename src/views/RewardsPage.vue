@@ -72,10 +72,10 @@
             <div class="mb-3">
               <div class="d-flex justify-space-between text-body-2 mb-1">
                 <span>Level {{ currentLevel.level }}</span>
-                <span>{{ userStats.currentXP }} / {{ currentLevel.xpRequired }} XP</span>
+                <span>{{ totalXP }} / {{ currentLevel.xpRequired }} XP</span>
               </div>
               <v-progress-linear
-                :model-value="(userStats.currentXP / currentLevel.xpRequired) * 100"
+                :model-value="(totalXP / currentLevel.xpRequired) * 100"
                 height="8"
                 color="primary"
                 rounded
@@ -84,7 +84,7 @@
 
             <!-- Next Level Preview -->
             <div class="text-body-2 text-medium-emphasis">
-              Next: {{ nextLevel.name }} ({{ currentLevel.xpRequired - userStats.currentXP }} XP
+              Next: {{ nextLevel.name }} ({{ Math.max(0, currentLevel.xpRequired - totalXP) }} XP
               needed)
             </div>
           </v-card-text>
@@ -253,10 +253,17 @@ const levels = [
   },
 ]
 
+// Calculate total XP from all unlocked achievements
+const totalXP = computed(() => {
+  return achievements.value
+    .filter(a => a.unlocked)
+    .reduce((sum, a) => sum + (a.xpReward || 0), 0)
+})
+
 const currentLevel = computed(() => {
   let level = levels[0]
   for (const l of levels) {
-    if (userStats.value.currentXP >= l.xpRequired) {
+    if (totalXP.value >= l.xpRequired) {
       level = l
     } else {
       break
@@ -433,17 +440,7 @@ const loadUserStatsAndAchievements = async (userId) => {
       }
     }
     
-    // Update user stats
-    const userData = userDoc.exists() ? userDoc.data() : null
-    userStats.value = {
-      totalPlants: plantsSnap.size,
-      wateringStreak: wateringStreak,
-      achievementsUnlocked: unlockedCount,
-      currentXP: userData?.currentXP || 0,
-      totalXP: userData?.totalXP || 0,
-    }
-    
-    // Update achievements list
+    // Update achievements list first (needed for XP calculation)
     achievementsSnap.forEach((doc) => {
       const achievementData = doc.data()
       const achievement = achievements.value.find(a => a.id === doc.id || a.id === achievementData.id)
@@ -452,6 +449,10 @@ const loadUserStatsAndAchievements = async (userId) => {
         achievement.progress = (typeof achievementData.progress === 'number') ? achievementData.progress : (achievementData.progress || 0)
         achievement.unlocked = !!achievementData.unlocked
         achievement.unlockedDate = parseUnlockedDate(achievementData.unlockedDate)
+        // Update xpReward from Firestore if available (in case it was changed)
+        if (achievementData.xpReward !== undefined) {
+          achievement.xpReward = achievementData.xpReward
+        }
       } else {
         achievements.value.push({
           id: doc.id,
@@ -467,6 +468,16 @@ const loadUserStatsAndAchievements = async (userId) => {
         })
       }
     })
+    
+    // Update user stats (XP is now calculated from achievements, not stored)
+    const userData = userDoc.exists() ? userDoc.data() : null
+    userStats.value = {
+      totalPlants: plantsSnap.size,
+      wateringStreak: wateringStreak,
+      achievementsUnlocked: unlockedCount,
+      currentXP: 0, // Not used anymore - calculated from achievements
+      totalXP: 0, // Not used anymore - calculated from achievements
+    }
   } catch (error) {
     console.error('Error loading user stats and achievements:', error)
   }

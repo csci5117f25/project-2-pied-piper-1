@@ -255,6 +255,8 @@
   - [x] Progress tracking for locked achievements (merged from Firestore docs) ✅
   - [x] Consistent card sizing (locked/unlocked same size) ✅
   - [x] Daily streak calculation from Water Warrior achievement ✅
+  - [x] Level system calculates XP from sum of unlocked achievements ✅
+  - [x] Performance optimization (parallel queries, removed duplicates) ✅
   - [ ] Achievement sharing functionality
   - [x] Gamification elements (XP display + level system wired) ✅
 
@@ -296,7 +298,7 @@
 - [ ] **Performance Optimization**
   - [ ] Image lazy loading
   - [ ] Code splitting and lazy routes
-  - [ ] Firebase query optimization
+  - [x] Firebase query optimization (Rewards page parallel queries) ✅
   - [ ] Bundle size optimization
 - [ ] **Accessibility**
   - [ ] Screen reader support
