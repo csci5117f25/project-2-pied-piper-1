@@ -398,16 +398,43 @@ const loadUserStats = async (userId) => {
     const plantsQuery = query(plantsRef, where('userId', '==', userId))
     const plantsSnap = await getDocs(plantsQuery)
     
-    // Count unlocked achievements
+    // Count unlocked achievements and get watering streak
     const achievementsRef = collection(db, 'users', userId, 'achievements')
     const achievementsSnap = await getDocs(achievementsRef)
     const unlockedCount = achievementsSnap.docs.filter(doc => doc.data().unlocked).length
+    
+    // Calculate watering streak from Water Warrior achievement
+    let wateringStreak = 0
+    const waterWarriorDoc = achievementsSnap.docs.find(doc => doc.id === 'water-warrior')
+    if (waterWarriorDoc) {
+      const waterWarriorData = waterWarriorDoc.data()
+      const progress = waterWarriorData.progress || 0
+      const lastCompletedDate = waterWarriorData.lastCompletedDate
+      
+      if (lastCompletedDate) {
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        const lastDate = new Date(lastCompletedDate)
+        lastDate.setHours(0, 0, 0, 0)
+        const daysDiff = Math.floor((today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24))
+        
+        // If last completed was today or yesterday, use the progress
+        // If it was more than 1 day ago, streak is broken (0)
+        if (daysDiff === 0 || daysDiff === 1) {
+          wateringStreak = progress
+        } else {
+          wateringStreak = 0
+        }
+      } else {
+        wateringStreak = progress
+      }
+    }
     
     if (userDoc.exists()) {
       const userData = userDoc.data()
       userStats.value = {
         totalPlants: plantsSnap.size,
-        wateringStreak: userData.wateringStreak || 0,
+        wateringStreak: wateringStreak,
         achievementsUnlocked: unlockedCount,
         currentXP: userData.currentXP || 0,
         totalXP: userData.totalXP || 0,
@@ -415,7 +442,7 @@ const loadUserStats = async (userId) => {
     } else {
       userStats.value = {
         totalPlants: plantsSnap.size,
-        wateringStreak: 0,
+        wateringStreak: wateringStreak,
         achievementsUnlocked: unlockedCount,
         currentXP: 0,
         totalXP: 0,

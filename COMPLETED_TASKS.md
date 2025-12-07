@@ -284,6 +284,27 @@ This document tracks the tasks completed during development.
 
 ---
 
+## Task 15: Updated Daily Streak Calculation in Rewards Page
+
+**Issue:** The daily streak displayed in the Rewards page was not being updated correctly. It was reading from a static `wateringStreak` field in the user document, which wasn't being maintained or calculated based on actual watering activity.
+
+**Root Cause:** The watering streak was stored as a static value in the user document (`userData.wateringStreak`) but there was no logic to update it when plants were watered. The "Water Warrior" achievement already tracked consecutive days of watering, but the streak display wasn't using this data.
+
+**Solution:**
+- Updated `loadUserStats()` function to calculate the watering streak from the "Water Warrior" achievement progress
+- The streak now uses the achievement's `progress` value, which tracks consecutive days
+- Added logic to check if the streak is still active by comparing `lastCompletedDate` with today:
+  - If last completed was today or yesterday → streak is active (uses progress value)
+  - If more than 1 day ago → streak is broken (shows 0)
+- The daily streak now automatically reflects the current consecutive days of watering all plants, matching the "Water Warrior" achievement progress
+
+**Files Modified:**
+- `src/views/RewardsPage.vue`
+
+**Date Completed:** Current session
+
+---
+
 ## Summary
 
 All tasks focused on improving user experience and data accuracy:
@@ -301,4 +322,5 @@ All tasks focused on improving user experience and data accuracy:
 12. **Consistency:** Standardized watering frequency options across all dialogs (Daily, Alternate Days, Weekly, Bi-weekly, Monthly, Custom) and updated all related logic throughout the app
 13. **Visual Consistency:** Fixed achievement card sizing to ensure all cards (locked and unlocked) maintain the same dimensions regardless of their state
 14. **Layout Stability:** Fixed calendar day card sizing to prevent layout shifts when selecting days, ensuring the outer calendar container maintains consistent size
+15. **Data Accuracy:** Updated daily streak calculation to dynamically read from Water Warrior achievement progress, ensuring the streak accurately reflects current consecutive days of watering
 
