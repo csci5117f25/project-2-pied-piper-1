@@ -128,12 +128,50 @@ const onDaySelected = (day) => {
   console.log('Selected day:', day.fullDate)
 }
 
+// Check if a plant needs watering
+const needsWatering = (plant) => {
+  if (!plant.lastWatered) {
+    // If never watered, it needs water
+    return true
+  }
+
+  if (!plant.wateringFrequency) {
+    // Default to weekly if no frequency set
+    return false
+  }
+
+  const lastWateredDate = plant.lastWatered.toDate ? plant.lastWatered.toDate() : new Date(plant.lastWatered)
+  const now = new Date()
+  const daysSinceWatering = Math.floor((now - lastWateredDate) / (1000 * 60 * 60 * 24))
+
+  // Determine days based on watering frequency
+  let daysUntilNextWatering
+  switch (plant.wateringFrequency) {
+    case 'daily':
+      daysUntilNextWatering = 1
+      break
+    case 'frequent':
+      daysUntilNextWatering = 2.5 // Average of 2-3 days
+      break
+    case 'weekly':
+      daysUntilNextWatering = 7
+      break
+    case 'biweekly':
+      daysUntilNextWatering = 14
+      break
+    case 'monthly':
+      daysUntilNextWatering = 30
+      break
+    default:
+      daysUntilNextWatering = 7 // Default to weekly
+  }
+
+  return daysSinceWatering >= daysUntilNextWatering
+}
+
 // Plants that need watering today
 const plantsToday = computed(() => {
-  // Placeholder logic - will implement proper date checking
-  return plants.value.filter(() => {
-    return Math.random() > 0.7
-  })
+  return plants.value.filter((plant) => needsWatering(plant))
 })
 
 // Listen for user and plants

@@ -105,8 +105,15 @@
             @click="selectDay(day)"
           >
             <div class="month-day-number">{{ day.dayNumber }}</div>
-            <div v-if="day.plantCount > 0" class="month-plant-indicator">
-              <v-icon size="12" color="success">mdi-circle</v-icon>
+            <div class="month-plant-indicator">
+              <v-chip
+                v-if="day.plantCount > 0"
+                :color="day.isToday ? 'primary' : 'success'"
+                size="x-small"
+                class="month-plant-count-chip"
+              >
+                {{ day.plantCount }}
+              </v-chip>
             </div>
           </div>
         </div>
@@ -132,7 +139,13 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 
-// Props (none currently used)
+// Props
+const props = defineProps({
+  plants: {
+    type: Array,
+    default: () => []
+  }
+})
 
 // Emits
 const emit = defineEmits(['day-selected'])
@@ -142,21 +155,87 @@ const viewMode = ref('week')
 const currentWeekStart = ref(new Date())
 const currentMonth = ref(new Date())
 const selectedDate = ref(new Date())
-const plantCounts = ref(new Map()) // Store stable plant counts
 
-// Helper function to get plant count for a date (placeholder)
-const getPlantCount = (date) => {
-  // Generate stable fake data for demo purposes
-  const dateString = date.toISOString().split('T')[0]
-  if (!plantCounts.value.has(dateString)) {
-    const hash = dateString.split('').reduce((a, b) => {
-      a = ((a << 5) - a) + b.charCodeAt(0)
-      return a & a
-    }, 0)
-    const count = Math.abs(hash) % 4
-    plantCounts.value.set(dateString, count)
+// Helper function to check if a plant needs watering on a specific date
+const needsWateringOnDate = (plant, targetDate) => {
+  if (!plant.lastWatered) {
+    // If never watered, it needs water on today and future dates
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const target = new Date(targetDate)
+    target.setHours(0, 0, 0, 0)
+    return target >= today
   }
-  return plantCounts.value.get(dateString)
+
+  if (!plant.wateringFrequency) {
+    // If no frequency set, assume it doesn't need watering
+    return false
+  }
+
+  const lastWateredDate = plant.lastWatered.toDate ? plant.lastWatered.toDate() : new Date(plant.lastWatered)
+  const target = new Date(targetDate)
+  
+  // Set both dates to midnight for accurate day comparison
+  lastWateredDate.setHours(0, 0, 0, 0)
+  target.setHours(0, 0, 0, 0)
+  
+  const daysSinceWatering = Math.floor((target - lastWateredDate) / (1000 * 60 * 60 * 24))
+
+  // Determine days based on watering frequency
+  let daysUntilNextWatering
+  switch (plant.wateringFrequency) {
+    case 'daily':
+      daysUntilNextWatering = 1
+      break
+    case 'frequent':
+      daysUntilNextWatering = 2.5 // Average of 2-3 days
+      break
+    case 'weekly':
+      daysUntilNextWatering = 7
+      break
+    case 'biweekly':
+      daysUntilNextWatering = 14
+      break
+    case 'monthly':
+      daysUntilNextWatering = 30
+      break
+    default:
+      daysUntilNextWatering = 7 // Default to weekly
+  }
+
+  // Check if the target date falls exactly on a watering day
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const isToday = target.getTime() === today.getTime()
+  
+  // For daily: every day after the first day
+  if (plant.wateringFrequency === 'daily') {
+    return daysSinceWatering >= 1
+  }
+  // For frequent (2-3 days): show on days 2, 3, 5, 6, 8, 9, etc.
+  else if (plant.wateringFrequency === 'frequent') {
+    if (daysSinceWatering < 2) return false
+    // Show if it's been 2 days, 3 days, or any combination that's a multiple of 2 or 3
+    return daysSinceWatering % 2 === 0 || daysSinceWatering % 3 === 0
+  }
+  // For weekly, biweekly, monthly: show only on exact interval days
+  else {
+    // If the plant is overdue (daysSinceWatering > interval), show it on today
+    if (isToday && daysSinceWatering >= daysUntilNextWatering) {
+      return true
+    }
+    // Otherwise, show only on exact interval days (7, 14, 21 for weekly, etc.)
+    return daysSinceWatering >= daysUntilNextWatering && daysSinceWatering % daysUntilNextWatering === 0
+  }
+}
+
+// Helper function to get plant count for a date
+const getPlantCount = (date) => {
+  if (!props.plants || props.plants.length === 0) {
+    return 0
+  }
+
+  return props.plants.filter(plant => needsWateringOnDate(plant, date)).length
 }
 
 // Computed properties
@@ -251,7 +330,14 @@ const monthDays = computed(() => {
 })
 
 const selectedDay = computed(() => {
-  return weekDays.value.find(day => day.isSelected)
+  // Check both week and month views for the selected day
+  const weekDay = weekDays.value.find(day => day.isSelected)
+  if (weekDay) return weekDay
+  
+  const monthDay = monthDays.value.find(day => day.isSelected)
+  if (monthDay) return monthDay
+  
+  return null
 })
 
 // Methods
@@ -493,6 +579,16 @@ onMounted(() => {
   position: absolute;
   bottom: 2px;
   right: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.month-plant-count-chip {
+  font-size: 0.65rem !important;
+  height: 16px !important;
+  min-width: 16px !important;
+  padding: 0 4px !important;
 }
 
 @media (max-width: 600px) {
@@ -515,6 +611,13 @@ onMounted(() => {
   
   .month-day-number {
     font-size: 0.75rem;
+  }
+  
+  .month-plant-count-chip {
+    font-size: 0.6rem !important;
+    height: 14px !important;
+    min-width: 14px !important;
+    padding: 0 3px !important;
   }
 }
 </style>
