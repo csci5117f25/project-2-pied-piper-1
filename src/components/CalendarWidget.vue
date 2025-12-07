@@ -406,7 +406,8 @@ onMounted(() => {
   transition: all 0.2s ease;
   min-height: 80px;
   position: relative;
-  border: 1px solid rgba(0, 0, 0, 0.1); /* Default light border for all days */
+  border: 2px solid rgba(0, 0, 0, 0.1); /* 2px border for all days to maintain consistent size */
+  box-sizing: border-box;
 }
 
 .calendar-day:hover {
@@ -435,7 +436,7 @@ onMounted(() => {
 }
 
 .calendar-day--has-plants {
-  border: 1px solid rgba(var(--v-theme-success), 0.3);
+  border: 2px solid rgba(var(--v-theme-success), 0.3);
 }
 
 /* Override plant border when today or selected */
@@ -509,7 +510,8 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   padding: 4px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  border: 2px solid rgba(0, 0, 0, 0.1); /* 2px border for all days to maintain consistent size */
+  box-sizing: border-box;
   cursor: pointer;
   transition: all 0.2s ease;
   position: relative;
@@ -543,7 +545,7 @@ onMounted(() => {
 }
 
 .month-day--has-plants {
-  border: 1px solid rgba(var(--v-theme-success), 0.3);
+  border: 2px solid rgba(var(--v-theme-success), 0.3);
 }
 
 .month-day--today.month-day--has-plants {

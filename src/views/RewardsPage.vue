@@ -131,7 +131,7 @@
             </p>
 
             <!-- Progress -->
-            <div v-if="!achievement.unlocked" class="mb-2">
+            <div v-if="!achievement.unlocked" class="mb-2 achievement-status-section">
               <v-progress-linear
                 :model-value="(achievement.progress / achievement.target) * 100"
                 height="4"
@@ -144,7 +144,7 @@
             </div>
 
             <!-- Unlocked Date -->
-            <div v-else class="text-caption text-success">
+            <div v-else class="text-caption text-success mb-2 achievement-status-section achievement-status-section--unlocked">
               <v-icon size="16" class="mr-1">mdi-check-circle</v-icon>
               Unlocked {{ formatDate(achievement.unlockedDate) }}
             </div>
@@ -527,6 +527,8 @@ const loadRecentActivities = async (userId) => {
 .achievement-card {
   border-radius: 12px !important;
   transition: all 0.2s ease;
+  border: 2px solid transparent;
+  box-sizing: border-box;
 }
 
 .achievement-card:hover {
@@ -549,6 +551,19 @@ const loadRecentActivities = async (userId) => {
   background: white;
   border-radius: 50%;
   padding: 2px;
+}
+
+.achievement-status-section {
+  height: 36px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.achievement-status-section--unlocked {
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
 }
 
 @media (max-width: 600px) {

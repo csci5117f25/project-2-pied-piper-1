@@ -244,6 +244,46 @@ This document tracks the tasks completed during development.
 
 ---
 
+## Task 13: Fixed Achievement Card Sizing Consistency
+
+**Issue:** When achievements were unlocked, the achievement cards became slightly smaller or larger compared to locked/in-progress achievement cards. This created visual inconsistency in the achievements grid, especially noticeable on mobile devices.
+
+**Root Cause:** Unlocked achievements displayed a single line of "Unlocked [date]" text, while locked achievements displayed a progress bar and progress text (e.g., "1/5"), which took up more vertical space. Additionally, unlocked achievements had a green border (2px) while locked achievements had no border, causing size differences.
+
+**Solution:**
+- Added a fixed height container (36px) for both the progress section and unlocked date section
+- Applied `box-sizing: border-box` to ensure borders are included in size calculations
+- Added a transparent 2px border to all achievement cards (locked and unlocked) so they maintain the same dimensions
+- Unlocked cards only change the border color from transparent to green, not the size
+- Used flexbox to properly center content within the fixed-height status section
+
+**Files Modified:**
+- `src/views/RewardsPage.vue`
+
+**Date Completed:** Current session
+
+---
+
+## Task 14: Fixed Calendar Day Card Sizing Consistency
+
+**Issue:** When a day was selected in the calendar widget, the outer calendar card container would become slightly bigger, causing layout shifts and visual inconsistency.
+
+**Root Cause:** Selected day cards had a 2px border while unselected day cards had a 1px border. When a day was selected, the border width increased from 1px to 2px, adding 2px to the total size (1px on each side), which made the card larger and caused the outer container to expand.
+
+**Solution:**
+- Changed all day cards (both week and month views) to use a consistent 2px border width
+- Unselected cards use a 2px transparent/light border
+- Selected cards only change the border color, not the width
+- Added `box-sizing: border-box` to ensure borders are included in size calculations
+- Applied the same fix to both week view and month view day cards
+
+**Files Modified:**
+- `src/components/CalendarWidget.vue`
+
+**Date Completed:** Current session
+
+---
+
 ## Summary
 
 All tasks focused on improving user experience and data accuracy:
@@ -259,4 +299,6 @@ All tasks focused on improving user experience and data accuracy:
 10. **Action Validation:** Water buttons are disabled for dates other than today to prevent illogical actions
 11. **Achievement Tracking:** Implemented proper progress tracking for watering-related achievements that only increments when all daily tasks are completed
 12. **Consistency:** Standardized watering frequency options across all dialogs (Daily, Alternate Days, Weekly, Bi-weekly, Monthly, Custom) and updated all related logic throughout the app
+13. **Visual Consistency:** Fixed achievement card sizing to ensure all cards (locked and unlocked) maintain the same dimensions regardless of their state
+14. **Layout Stability:** Fixed calendar day card sizing to prevent layout shifts when selecting days, ensuring the outer calendar container maintains consistent size
 
