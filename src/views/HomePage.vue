@@ -34,13 +34,13 @@
       </v-col>
     </v-row>
 
-    <!-- Plants to Water Today -->
+    <!-- Plants to Water -->
     <v-row>
       <v-col cols="12">
         <v-card elevation="2">
           <v-card-title class="d-flex align-center">
             <v-icon class="mr-2" color="primary">mdi-sprout</v-icon>
-            Plants to Water Today
+            {{ sectionTitle }}
             <v-spacer></v-spacer>
             <v-chip :color="plantsToday.length > 0 ? 'primary' : 'grey'" size="small">
               {{ plantsToday.length }}
@@ -51,7 +51,7 @@
             <v-icon size="64" color="grey-lighten-2" class="mb-4"> mdi-check-circle </v-icon>
             <div class="text-h6 text-medium-emphasis mb-2">All caught up! 🎉</div>
             <div class="text-body-2 text-medium-emphasis">
-              No plants need watering today. Great job!
+              {{ selectedDateText }}
             </div>
           </v-card-text>
 
@@ -82,6 +82,7 @@
                     size="small"
                     color="success"
                     variant="tonal"
+                    :disabled="!isSelectedDateToday"
                   />
                   <v-btn
                     @click="skipPlantWatering(plant)"
@@ -89,6 +90,7 @@
                     size="small"
                     color="warning"
                     variant="tonal"
+                    :disabled="!isSelectedDateToday"
                   />
                 </div>
               </div>
@@ -112,6 +114,7 @@ import { ref, computed, onMounted } from 'vue'
 import { onAuthStateChanged } from 'firebase/auth'
 import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore'
 import { auth, db } from '@/firebase'
+import { handlePlantWatered, handleAllPlantsHealthy } from '@/utils/achievements'
 import WeatherWidget from '@/components/WeatherWidget.vue'
 import CalendarWidget from '@/components/CalendarWidget.vue'
 
@@ -128,12 +131,114 @@ const onDaySelected = (day) => {
   console.log('Selected day:', day.fullDate)
 }
 
-// Plants that need watering today
+// Check if a plant needs watering on a specific date
+const needsWateringOnDate = (plant, targetDate) => {
+  if (!plant.lastWatered) {
+    // If never watered, it needs water on today and future dates
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const target = new Date(targetDate)
+    target.setHours(0, 0, 0, 0)
+    return target >= today
+  }
+
+  if (!plant.wateringFrequency) {
+    // If no frequency set, assume it doesn't need watering
+    return false
+  }
+
+  const lastWateredDate = plant.lastWatered.toDate ? plant.lastWatered.toDate() : new Date(plant.lastWatered)
+  const target = new Date(targetDate)
+  
+  // Set both dates to midnight for accurate day comparison
+  lastWateredDate.setHours(0, 0, 0, 0)
+  target.setHours(0, 0, 0, 0)
+  
+  const daysSinceWatering = Math.floor((target - lastWateredDate) / (1000 * 60 * 60 * 24))
+
+  // Check if the target date falls exactly on a watering day
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const isToday = target.getTime() === today.getTime()
+  
+  // Handle different watering frequencies
+  if (plant.wateringFrequency === 'daily') {
+    return daysSinceWatering >= 1
+  } else if (plant.wateringFrequency === 'alternate-days') {
+    // Every other day (every 2 days)
+    return daysSinceWatering >= 1 && daysSinceWatering % 2 === 0
+  } else if (plant.wateringFrequency === 'custom') {
+    // Custom frequency - use customWateringDays
+    const daysUntilNextWatering = plant.customWateringDays || 7
+    if (isToday && daysSinceWatering >= daysUntilNextWatering) {
+      return true
+    }
+    return daysSinceWatering >= daysUntilNextWatering && daysSinceWatering % daysUntilNextWatering === 0
+  } else {
+    // Weekly, biweekly, monthly
+    let daysUntilNextWatering
+    switch (plant.wateringFrequency) {
+      case 'weekly':
+        daysUntilNextWatering = 7
+        break
+      case 'biweekly':
+        daysUntilNextWatering = 14
+        break
+      case 'monthly':
+        daysUntilNextWatering = 30
+        break
+      default:
+        daysUntilNextWatering = 7 // Default to weekly
+    }
+    
+    // If the plant is overdue (daysSinceWatering > interval), show it on today
+    if (isToday && daysSinceWatering >= daysUntilNextWatering) {
+      return true
+    }
+    // Otherwise, show only on exact interval days (7, 14, 21 for weekly, etc.)
+    return daysSinceWatering >= daysUntilNextWatering && daysSinceWatering % daysUntilNextWatering === 0
+  }
+}
+
+// Check if selected date is today
+const isSelectedDateToday = computed(() => {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const selected = new Date(selectedDate.value)
+  selected.setHours(0, 0, 0, 0)
+  return selected.getTime() === today.getTime()
+})
+
+// Section title based on selected date
+const sectionTitle = computed(() => {
+  if (isSelectedDateToday.value) {
+    return 'Plants to Water Today'
+  }
+  const date = new Date(selectedDate.value)
+  return `Plants to Water on ${date.toLocaleDateString('en-US', { 
+    weekday: 'long', 
+    month: 'long', 
+    day: 'numeric' 
+  })}`
+})
+
+// Empty state text based on selected date
+const selectedDateText = computed(() => {
+  if (isSelectedDateToday.value) {
+    return 'No plants need watering today. Great job!'
+  }
+  const date = new Date(selectedDate.value)
+  return `No plants need watering on ${date.toLocaleDateString('en-US', { 
+    weekday: 'long', 
+    month: 'long', 
+    day: 'numeric' 
+  })}.`
+})
+
+// Plants that need watering on the selected date
 const plantsToday = computed(() => {
-  // Placeholder logic - will implement proper date checking
-  return plants.value.filter(() => {
-    return Math.random() > 0.7
-  })
+  const targetDate = selectedDate.value
+  return plants.value.filter((plant) => needsWateringOnDate(plant, targetDate))
 })
 
 // Listen for user and plants
@@ -162,6 +267,18 @@ const completePlantWatering = async (plant) => {
     await updateDoc(plantRef, {
       lastWatered: new Date(),
     })
+    
+    // Update achievements
+    const uid = auth.currentUser?.uid
+    if (uid) {
+      handlePlantWatered(uid).catch((err) => {
+        console.error('Failed to update achievements after watering:', err)
+      })
+      handleAllPlantsHealthy(uid).catch((err) => {
+        console.error('Failed to update Green Thumb achievement:', err)
+      })
+    }
+    
     showSuccess.value = true
     successMessage.value = `${plant.nickname} watered! 💧`
   } catch (error) {

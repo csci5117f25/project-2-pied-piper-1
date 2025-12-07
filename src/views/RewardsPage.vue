@@ -131,7 +131,7 @@
             </p>
 
             <!-- Progress -->
-            <div v-if="!achievement.unlocked" class="mb-2">
+            <div v-if="!achievement.unlocked" class="mb-2 achievement-status-section">
               <v-progress-linear
                 :model-value="(achievement.progress / achievement.target) * 100"
                 height="4"
@@ -144,7 +144,7 @@
             </div>
 
             <!-- Unlocked Date -->
-            <div v-else class="text-caption text-success">
+            <div v-else class="text-caption text-success mb-2 achievement-status-section achievement-status-section--unlocked">
               <v-icon size="16" class="mr-1">mdi-check-circle</v-icon>
               Unlocked {{ formatDate(achievement.unlockedDate) }}
             </div>
@@ -203,6 +203,7 @@ import { ref, computed, onMounted } from 'vue'
 import { onAuthStateChanged } from 'firebase/auth'
 import { doc, getDoc, collection, getDocs, query, orderBy, limit, where } from 'firebase/firestore'
 import { auth, db } from '@/firebase'
+import { checkDailyAchievementReset } from '@/utils/achievements'
 
 // User stats
 const userStats = ref({
@@ -376,6 +377,8 @@ const formatTime = (date) => {
 onMounted(() => {
   onAuthStateChanged(auth, async (user) => {
     if (user) {
+      // Check and reset achievements if tasks weren't completed
+      await checkDailyAchievementReset(user.uid)
       await loadUserStats(user.uid)
       await loadUserAchievements(user.uid)
       await loadRecentActivities(user.uid)
@@ -395,16 +398,43 @@ const loadUserStats = async (userId) => {
     const plantsQuery = query(plantsRef, where('userId', '==', userId))
     const plantsSnap = await getDocs(plantsQuery)
     
-    // Count unlocked achievements
+    // Count unlocked achievements and get watering streak
     const achievementsRef = collection(db, 'users', userId, 'achievements')
     const achievementsSnap = await getDocs(achievementsRef)
     const unlockedCount = achievementsSnap.docs.filter(doc => doc.data().unlocked).length
+    
+    // Calculate watering streak from Water Warrior achievement
+    let wateringStreak = 0
+    const waterWarriorDoc = achievementsSnap.docs.find(doc => doc.id === 'water-warrior')
+    if (waterWarriorDoc) {
+      const waterWarriorData = waterWarriorDoc.data()
+      const progress = waterWarriorData.progress || 0
+      const lastCompletedDate = waterWarriorData.lastCompletedDate
+      
+      if (lastCompletedDate) {
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        const lastDate = new Date(lastCompletedDate)
+        lastDate.setHours(0, 0, 0, 0)
+        const daysDiff = Math.floor((today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24))
+        
+        // If last completed was today or yesterday, use the progress
+        // If it was more than 1 day ago, streak is broken (0)
+        if (daysDiff === 0 || daysDiff === 1) {
+          wateringStreak = progress
+        } else {
+          wateringStreak = 0
+        }
+      } else {
+        wateringStreak = progress
+      }
+    }
     
     if (userDoc.exists()) {
       const userData = userDoc.data()
       userStats.value = {
         totalPlants: plantsSnap.size,
-        wateringStreak: userData.wateringStreak || 0,
+        wateringStreak: wateringStreak,
         achievementsUnlocked: unlockedCount,
         currentXP: userData.currentXP || 0,
         totalXP: userData.totalXP || 0,
@@ -412,7 +442,7 @@ const loadUserStats = async (userId) => {
     } else {
       userStats.value = {
         totalPlants: plantsSnap.size,
-        wateringStreak: 0,
+        wateringStreak: wateringStreak,
         achievementsUnlocked: unlockedCount,
         currentXP: 0,
         totalXP: 0,
@@ -524,6 +554,8 @@ const loadRecentActivities = async (userId) => {
 .achievement-card {
   border-radius: 12px !important;
   transition: all 0.2s ease;
+  border: 2px solid transparent;
+  box-sizing: border-box;
 }
 
 .achievement-card:hover {
@@ -546,6 +578,19 @@ const loadRecentActivities = async (userId) => {
   background: white;
   border-radius: 50%;
   padding: 2px;
+}
+
+.achievement-status-section {
+  height: 36px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.achievement-status-section--unlocked {
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
 }
 
 @media (max-width: 600px) {

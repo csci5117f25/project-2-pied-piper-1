@@ -179,7 +179,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { onAuthStateChanged } from 'firebase/auth'
 import { collection, query, where, onSnapshot, doc, deleteDoc, updateDoc, increment, addDoc } from 'firebase/firestore'
-import { handlePlantRemoved } from '@/utils/achievements'
+import { handlePlantRemoved, handlePlantWatered, handleAllPlantsHealthy } from '@/utils/achievements'
 import { auth, db } from '@/firebase'
 import AddPlantDialog from '@/components/AddPlantDialog.vue'
 import EditPlantDialog from '@/components/EditPlantDialog.vue'
@@ -250,9 +250,49 @@ const filteredPlants = computed(() => {
 })
 
 // Plant status functions
-const needsWatering = () => {
-  // Placeholder logic - will implement proper date checking
-  return Math.random() > 0.5
+const needsWatering = (plant) => {
+  if (!plant.lastWatered) {
+    // If never watered, it needs water
+    return true
+  }
+
+  if (!plant.wateringFrequency) {
+    // Default to weekly if no frequency set
+    return false
+  }
+
+  const lastWateredDate = plant.lastWatered.toDate ? plant.lastWatered.toDate() : new Date(plant.lastWatered)
+  const now = new Date()
+  const daysSinceWatering = Math.floor((now - lastWateredDate) / (1000 * 60 * 60 * 24))
+
+  // Handle different watering frequencies
+  if (plant.wateringFrequency === 'daily') {
+    return daysSinceWatering >= 1
+  } else if (plant.wateringFrequency === 'alternate-days') {
+    // Every other day (every 2 days)
+    return daysSinceWatering >= 1 && daysSinceWatering % 2 === 0
+  } else if (plant.wateringFrequency === 'custom') {
+    // Custom frequency - use customWateringDays
+    const daysUntilNextWatering = plant.customWateringDays || 7
+    return daysSinceWatering >= daysUntilNextWatering
+  } else {
+    // Weekly, biweekly, monthly
+    let daysUntilNextWatering
+    switch (plant.wateringFrequency) {
+      case 'weekly':
+        daysUntilNextWatering = 7
+        break
+      case 'biweekly':
+        daysUntilNextWatering = 14
+        break
+      case 'monthly':
+        daysUntilNextWatering = 30
+        break
+      default:
+        daysUntilNextWatering = 7 // Default to weekly
+    }
+    return daysSinceWatering >= daysUntilNextWatering
+  }
 }
 
 const getPlantStatus = (plant) => {
@@ -276,11 +316,21 @@ const openPlantDetail = (plant) => {
 
 const waterPlant = async (plant) => {
   try {
-    // TODO: Update watering date in Firestore
     const plantRef = doc(db, 'plants', plant.id)
     await updateDoc(plantRef, {
       lastWatered: new Date(),
     })
+
+    // Update achievements
+    const uid = auth.currentUser?.uid
+    if (uid) {
+      handlePlantWatered(uid).catch((err) => {
+        console.error('Failed to update achievements after watering:', err)
+      })
+      handleAllPlantsHealthy(uid).catch((err) => {
+        console.error('Failed to update Green Thumb achievement:', err)
+      })
+    }
 
     showSuccess.value = true
     successMessage.value = `${plant.nickname} watered! 💧`
@@ -307,54 +357,53 @@ const deletePlant = (plant) => {
 }
 
 const confirmDelete = async () => {
-  try {
-    if (plantToDelete.value) {
-      await deleteDoc(doc(db, 'plants', plantToDelete.value.id))
+  if (!plantToDelete.value) return
 
+  const plantToDeleteData = { ...plantToDelete.value }
+  
+  // Close dialog immediately for better UX
+  showConfirmDialog.value = false
+  plantToDelete.value = null
+
+  try {
+    // Main deletion operation
+    await deleteDoc(doc(db, 'plants', plantToDeleteData.id))
+
+    // Show success message
+    showSuccess.value = true
+    successMessage.value = `${plantToDeleteData.nickname} deleted`
+
+    // Run background operations (non-blocking)
+    const uid = auth.currentUser?.uid
+    if (uid) {
       // Decrement user's plant count
-      try {
-        const uid = auth.currentUser?.uid
-        if (uid) {
-          await updateDoc(doc(db, 'users', uid), { numberOfPlants: increment(-1) })
-        }
-      } catch (err) {
+      updateDoc(doc(db, 'users', uid), { numberOfPlants: increment(-1) }).catch((err) => {
         console.error('Failed to decrement user.numberOfPlants:', err)
-      }
+      })
 
       // Update achievements for plant removal
-      try {
-        const uid = auth.currentUser?.uid
-        if (uid) await handlePlantRemoved(uid, plantToDelete.value.id)
-      } catch (err) {
+      handlePlantRemoved(uid, plantToDeleteData.id).catch((err) => {
         console.error('Failed to update achievements after plant deletion:', err)
-      }
+      })
 
       // Log deletion activity
-      try {
-        const uid = auth.currentUser?.uid
-        if (uid) {
-          await addDoc(collection(db, 'users', uid, 'activities'), {
-            type: 'plant_deleted',
-            title: 'Plant Deleted',
-            description: `Deleted ${plantToDelete.value.nickname} from your collection`,
-            plantId: plantToDelete.value.id,
-            timestamp: new Date(),
-            userId: uid,
-            xpEarned: 0,
-          })
-        }
-      } catch (err) {
+      addDoc(collection(db, 'users', uid, 'activities'), {
+        type: 'plant_deleted',
+        title: 'Plant Deleted',
+        description: `Deleted ${plantToDeleteData.nickname} from your collection`,
+        plantId: plantToDeleteData.id,
+        timestamp: new Date(),
+        userId: uid,
+        xpEarned: 0,
+      }).catch((err) => {
         console.error('Failed to log plant deletion activity:', err)
-      }
-
-      showSuccess.value = true
-      successMessage.value = `${plantToDelete.value.nickname} deleted`
+      })
     }
   } catch (error) {
     console.error('Error deleting plant:', error)
-  } finally {
-    showConfirmDialog.value = false
-    plantToDelete.value = null
+    // Show error message if main deletion fails
+    showSuccess.value = true
+    successMessage.value = `Failed to delete ${plantToDeleteData.nickname}`
   }
 }
 
