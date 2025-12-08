@@ -152,7 +152,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { doc, updateDoc } from 'firebase/firestore'
-import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
+import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
 import { db, storage } from '@/firebase'
 
 const props = defineProps({
@@ -260,7 +260,33 @@ const updatePlant = async () => {
 
     // Upload new photo if selected
     if (form.value._photoFile) {
-      const fileName = `plants/${props.plant.userId}/${Date.now()}`
+      console.log('New photo file detected, checking for old photo to delete')
+      console.log('Old photo URL:', props.plant.photoURL)
+      
+      // Delete old photo from storage if it exists and is different
+      if (props.plant.photoURL && props.plant.photoURL.startsWith('https://firebasestorage.googleapis.com')) {
+        try {
+          console.log('Attempting to delete old photo from storage')
+          const url = new URL(props.plant.photoURL)
+          const pathMatch = url.pathname.match(/o\/(.*?)(?:\?|$)/)
+          if (pathMatch) {
+            const oldFilePath = decodeURIComponent(pathMatch[1])
+            console.log('Extracted old file path:', oldFilePath)
+            const oldPhotoRef = storageRef(storage, oldFilePath)
+            await deleteObject(oldPhotoRef)
+            console.log('Successfully deleted old photo from storage')
+          } else {
+            console.warn('Could not extract file path from old photo URL')
+          }
+        } catch (error) {
+          console.error('Failed to delete old plant photo:', error)
+        }
+      } else {
+        console.log('No valid old photo to delete or not a Firebase Storage URL')
+      }
+
+      // Upload new photo
+      const fileName = `users/${props.plant.userId}/plants/${Date.now()}`
       const photoRef = storageRef(storage, fileName)
       await uploadBytes(photoRef, form.value._photoFile)
       photoURL = await getDownloadURL(photoRef)

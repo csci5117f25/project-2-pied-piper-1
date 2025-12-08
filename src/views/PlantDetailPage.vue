@@ -289,7 +289,7 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { doc, getDoc, updateDoc, deleteDoc, increment, collection, addDoc } from 'firebase/firestore'
 import { handlePlantRemoved, handlePlantWatered, handleAllPlantsHealthy } from '@/utils/achievements'
-import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
+import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
 import { onAuthStateChanged } from 'firebase/auth'
 import { auth, db, storage } from '@/firebase'
 
@@ -399,7 +399,27 @@ const savePlant = async () => {
 
     // Upload photo if there's a new file
     if (plantForm.value._photoFile) {
-      const fileName = `plants/${user.value.uid}/${Date.now()}`
+      // Delete old photo from storage if it exists and is different
+      if (plant.value?.photoURL && plant.value.photoURL.startsWith('https://firebasestorage.googleapis.com')) {
+        try {
+          const url = new URL(plant.value.photoURL)
+          const pathMatch = url.pathname.match(/o\/(.*?)(?:\?|$)/)
+          if (pathMatch) {
+            const oldFilePath = decodeURIComponent(pathMatch[1])
+            const oldPhotoRef = storageRef(storage, oldFilePath)
+            await deleteObject(oldPhotoRef)
+          } else {
+            console.warn('Could not extract file path from old photo URL in PlantDetailPage')
+          }
+        } catch (error) {
+          console.error('Failed to delete old plant photo in PlantDetailPage:', error)
+        }
+      } else {
+        console.log('No valid old photo to delete or not a Firebase Storage URL in PlantDetailPage')
+      }
+
+      // Upload new photo
+      const fileName = `users/${user.value.uid}/plants/${Date.now()}`
       const photoRef = storageRef(storage, fileName)
       await uploadBytes(photoRef, plantForm.value._photoFile)
       photoURL = await getDownloadURL(photoRef)
@@ -427,6 +447,26 @@ const savePlant = async () => {
 const deletePlant = async () => {
   deleting.value = true
   try {
+    // Delete plant photo from storage if it exists
+    if (plant.value?.photoURL) {
+      try {
+        // Handle Firebase Storage URLs
+        if (plant.value.photoURL.startsWith('https://firebasestorage.googleapis.com')) {
+          // Extract file path from Firebase Storage URL
+          const url = new URL(plant.value.photoURL)
+          const pathMatch = url.pathname.match(/o\/(.*?)(?:\?|$)/)
+          
+          if (pathMatch) {
+            const filePath = decodeURIComponent(pathMatch[1])
+            const photoRef = storageRef(storage, filePath)
+            await deleteObject(photoRef)
+          }
+        }
+      } catch (storageError) {
+        console.error('Failed to delete plant photo from storage:', storageError)
+      }
+    }
+
     const plantRef = doc(db, 'plants', route.params.id)
     await deleteDoc(plantRef)
     // Decrement user's plant count

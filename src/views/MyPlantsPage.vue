@@ -179,8 +179,9 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { onAuthStateChanged } from 'firebase/auth'
 import { collection, query, where, onSnapshot, doc, deleteDoc, updateDoc, increment, addDoc } from 'firebase/firestore'
+import { ref as storageRef, deleteObject } from 'firebase/storage'
 import { handlePlantRemoved, handlePlantWatered, handleAllPlantsHealthy } from '@/utils/achievements'
-import { auth, db } from '@/firebase'
+import { auth, db, storage } from '@/firebase'
 import AddPlantDialog from '@/components/AddPlantDialog.vue'
 import EditPlantDialog from '@/components/EditPlantDialog.vue'
 
@@ -366,6 +367,26 @@ const confirmDelete = async () => {
   plantToDelete.value = null
 
   try {
+    // Delete plant photo from storage if it exists
+    if (plantToDeleteData.photoURL) {
+      try {
+        // Handle Firebase Storage URLs
+        if (plantToDeleteData.photoURL.startsWith('https://firebasestorage.googleapis.com')) {
+          // Extract file path from Firebase Storage URL
+          const url = new URL(plantToDeleteData.photoURL)
+          const pathMatch = url.pathname.match(/o\/(.*?)(?:\?|$)/)
+          
+          if (pathMatch) {
+            const filePath = decodeURIComponent(pathMatch[1])
+            const photoRef = storageRef(storage, filePath)
+            await deleteObject(photoRef)
+          }
+        }
+      } catch (storageError) {
+        console.error('Failed to delete plant photo from storage:', storageError)
+      }
+    }
+
     // Main deletion operation
     await deleteDoc(doc(db, 'plants', plantToDeleteData.id))
 

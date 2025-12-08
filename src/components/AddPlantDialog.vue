@@ -32,28 +32,37 @@
             <!-- Photo Upload Area -->
             <div class="photo-upload-container mb-4">
               <div v-if="!plantForm.photoURL" class="photo-upload-area" @click="selectPhotoSource">
-                <v-icon size="64" color="grey-lighten-1" class="mb-4"> mdi-camera-plus </v-icon>
-                <div class="text-h6 mb-2">Add Plant Photo</div>
+                <v-icon size="64" color="primary" class="mb-4"> mdi-camera-plus </v-icon>
+                <div class="text-h6 mb-2 font-weight-bold">Add Plant Photo</div>
                 <div class="text-body-2 text-medium-emphasis">
-                  Tap to take a photo or choose from gallery
+                  Tap here to take a photo or choose from gallery
                 </div>
               </div>
 
               <div v-else class="photo-preview">
                 <v-img
                   :src="plantForm.photoURL"
-                  :alt="plantForm.nickname"
-                  height="200"
+                  :alt="plantForm.nickname || 'Plant photo'"
+                  height="250"
                   cover
-                  class="rounded"
+                  class="rounded elevation-2"
                 />
                 <v-btn
                   @click="removePhoto"
                   icon="mdi-close"
                   size="small"
                   color="error"
-                  class="photo-remove-btn"
+                  class="photo-remove-btn elevation-2"
                 />
+                <v-chip 
+                  class="photo-success-chip" 
+                  color="success" 
+                  variant="flat" 
+                  size="small"
+                  prepend-icon="mdi-check"
+                >
+                  Photo Added
+                </v-chip>
               </div>
             </div>
 
@@ -547,7 +556,7 @@ const savePlant = async () => {
 
     // Upload photo if there's a new file
     if (plantForm.value._photoFile) {
-      const fileName = `plants/${user.value.uid}/${Date.now()}`
+      const fileName = `users/${user.value.uid}/plants/${Date.now()}`
       const photoRef = storageRef(storage, fileName)
 
       await uploadBytes(photoRef, plantForm.value._photoFile)
@@ -638,6 +647,10 @@ onUnmounted(() => {
   box-shadow: none;
 }
 
+.photo-upload-container {
+  min-height: 250px;
+}
+
 .photo-upload-area {
   border: 2px dashed #e0e0e0;
   border-radius: 12px;
@@ -645,6 +658,12 @@ onUnmounted(() => {
   text-align: center;
   cursor: pointer;
   transition: all 0.2s ease;
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.02);
 }
 
 .photo-upload-area:hover {
@@ -655,12 +674,21 @@ onUnmounted(() => {
 .photo-preview {
   position: relative;
   display: inline-block;
+  width: 100%;
 }
 
 .photo-remove-btn {
   position: absolute;
   top: 8px;
   right: 8px;
+  z-index: 2;
+}
+
+.photo-success-chip {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  z-index: 2;
 }
 
 .plant-details-form .v-field {
