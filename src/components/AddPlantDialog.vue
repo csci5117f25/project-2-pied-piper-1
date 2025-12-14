@@ -39,6 +39,25 @@
                 </div>
               </div>
 
+              <!-- AI Analysis Loading State -->
+              <div v-else-if="analyzingPlant" class="photo-analyzing">
+                <v-img
+                  :src="plantForm.photoURL"
+                  :alt="plantForm.nickname || 'Plant photo'"
+                  height="200"
+                  cover
+                  class="rounded elevation-2 mb-4"
+                  style="opacity: 0.7"
+                />
+                <div class="text-center">
+                  <v-progress-circular indeterminate color="primary" size="48" class="mb-3" />
+                  <div class="text-h6 font-weight-medium">Analyzing your plant...</div>
+                  <div class="text-body-2 text-medium-emphasis">
+                    AI is identifying the plant type and care needs
+                  </div>
+                </div>
+              </div>
+
               <div v-else class="photo-preview">
                 <v-img
                   :src="plantForm.photoURL"
@@ -54,10 +73,33 @@
                   color="error"
                   class="photo-remove-btn elevation-2"
                 />
-                <v-chip 
-                  class="photo-success-chip" 
-                  color="success" 
-                  variant="flat" 
+
+                <!-- AI Analysis Result Badge -->
+                <v-chip
+                  v-if="aiAnalysisResult?.success"
+                  class="photo-success-chip"
+                  :color="aiConfidenceColor"
+                  variant="flat"
+                  size="small"
+                  :prepend-icon="aiConfidenceIcon"
+                >
+                  {{ aiAnalysisResult.plantType }} ({{ aiAnalysisResult.confidence }})
+                </v-chip>
+                <v-chip
+                  v-else-if="aiAnalysisResult?.error"
+                  class="photo-success-chip"
+                  color="warning"
+                  variant="flat"
+                  size="small"
+                  prepend-icon="mdi-alert"
+                >
+                  Manual entry needed
+                </v-chip>
+                <v-chip
+                  v-else
+                  class="photo-success-chip"
+                  color="success"
+                  variant="flat"
                   size="small"
                   prepend-icon="mdi-check"
                 >
@@ -73,6 +115,7 @@
                 variant="outlined"
                 prepend-icon="mdi-camera"
                 class="flex-1"
+                :disabled="analyzingPlant"
               >
                 Take Photo
               </v-btn>
@@ -81,15 +124,42 @@
                 variant="outlined"
                 prepend-icon="mdi-image"
                 class="flex-1"
+                :disabled="analyzingPlant"
               >
                 Choose Photo
               </v-btn>
             </div>
+
+            <!-- AI Analysis Error Alert -->
+            <v-alert
+              v-if="aiAnalysisResult?.error"
+              type="warning"
+              variant="tonal"
+              class="mt-4"
+              density="compact"
+            >
+              <div class="text-body-2">
+                <strong>AI couldn't identify the plant:</strong> {{ aiAnalysisResult.error }}
+              </div>
+              <div class="text-caption">You can still add the plant manually.</div>
+            </v-alert>
           </div>
 
           <!-- Step 2: Plant Details -->
           <div v-else-if="currentStep === 2" class="pa-6">
-            <h3 class="text-h6 font-weight-bold mb-4">Plant Details</h3>
+            <h3 class="text-h6 font-weight-bold mb-4 d-flex align-center">
+              Plant Details
+              <v-chip
+                v-if="aiAnalysisResult?.success"
+                color="primary"
+                size="small"
+                variant="tonal"
+                class="ml-2"
+                prepend-icon="mdi-robot"
+              >
+                AI Filled
+              </v-chip>
+            </h3>
 
             <v-form ref="plantFormRef" class="plant-details-form">
               <v-text-field
@@ -99,17 +169,23 @@
                 variant="outlined"
                 :rules="[rules.required]"
                 class="mb-4"
+                :hint="aiAnalysisResult?.success ? 'Suggested by AI - feel free to change!' : ''"
+                persistent-hint
               />
 
-              <v-autocomplete
+              <v-text-field
                 v-model="plantForm.plantType"
-                :items="plantTypes"
                 label="Plant Type *"
-                placeholder="Start typing to search..."
+                placeholder="e.g., Monstera Deliciosa, Snake Plant"
                 variant="outlined"
                 :rules="[rules.required]"
-                clearable
                 class="mb-4"
+                :hint="
+                  aiAnalysisResult?.success
+                    ? `AI identified with ${aiAnalysisResult.confidence} confidence`
+                    : ''
+                "
+                persistent-hint
               />
 
               <v-text-field
@@ -123,18 +199,34 @@
 
               <v-textarea
                 v-model="plantForm.notes"
-                label="Notes (Optional)"
-                placeholder="Any special care instructions or notes..."
+                label="Care Notes"
+                :placeholder="
+                  aiAnalysisResult?.success ? '' : 'Any special care instructions or notes...'
+                "
                 variant="outlined"
                 rows="3"
                 max-rows="5"
+                :hint="aiAnalysisResult?.success ? 'AI-generated care tips - edit as needed' : ''"
+                persistent-hint
               />
             </v-form>
           </div>
 
           <!-- Step 3: Care Schedule -->
           <div v-else-if="currentStep === 3" class="pa-6">
-            <h3 class="text-h6 font-weight-bold mb-4">Care Schedule</h3>
+            <h3 class="text-h6 font-weight-bold mb-4 d-flex align-center">
+              Care Schedule
+              <v-chip
+                v-if="aiAnalysisResult?.success"
+                color="primary"
+                size="small"
+                variant="tonal"
+                class="ml-2"
+                prepend-icon="mdi-robot"
+              >
+                AI Recommended
+              </v-chip>
+            </h3>
 
             <!-- Watering Schedule -->
             <div class="care-section mb-6">
@@ -149,6 +241,8 @@
                 label="Watering Frequency"
                 variant="outlined"
                 class="mb-3"
+                :hint="aiAnalysisResult?.success ? 'Recommended by AI based on plant type' : ''"
+                persistent-hint
               />
 
               <v-text-field
@@ -295,6 +389,7 @@ import { handlePlantAdded } from '@/utils/achievements'
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { onAuthStateChanged } from 'firebase/auth'
 import { auth, db, storage } from '@/firebase'
+import { analyzePlantImage } from '@/services/geminiService'
 
 // Props
 const props = defineProps({
@@ -322,6 +417,39 @@ const fileInput = ref(null)
 const cameraStream = ref(null)
 const user = ref(null)
 const plantFormRef = ref(null)
+
+// AI Analysis state
+const analyzingPlant = ref(false)
+const aiAnalysisResult = ref(null)
+
+// AI confidence indicators
+const aiConfidenceColor = computed(() => {
+  if (!aiAnalysisResult.value?.success) return 'grey'
+  switch (aiAnalysisResult.value.confidence) {
+    case 'high':
+      return 'success'
+    case 'medium':
+      return 'warning'
+    case 'low':
+      return 'error'
+    default:
+      return 'grey'
+  }
+})
+
+const aiConfidenceIcon = computed(() => {
+  if (!aiAnalysisResult.value?.success) return 'mdi-help'
+  switch (aiAnalysisResult.value.confidence) {
+    case 'high':
+      return 'mdi-check-circle'
+    case 'medium':
+      return 'mdi-alert-circle'
+    case 'low':
+      return 'mdi-help-circle'
+    default:
+      return 'mdi-robot'
+  }
+})
 
 // Dialog control
 const internalDialog = computed({
@@ -432,6 +560,9 @@ const resetForm = () => {
     needsFertilizer: false,
     needsPruning: false,
   }
+  // Clear AI analysis state
+  aiAnalysisResult.value = null
+  analyzingPlant.value = false
 }
 
 const nextStep = async () => {
@@ -442,7 +573,7 @@ const nextStep = async () => {
       if (!valid) return
     }
   }
-  
+
   if (currentStep.value < 3) {
     currentStep.value++
   }
@@ -527,6 +658,48 @@ const processPhotoFile = async (file) => {
 
     // Store file for later upload
     plantForm.value._photoFile = file
+
+    // Analyze the plant image with AI
+    analyzingPlant.value = true
+    aiAnalysisResult.value = null
+
+    try {
+      const result = await analyzePlantImage(file)
+
+      if (result) {
+        aiAnalysisResult.value = result
+
+        // Auto-fill form fields from AI analysis
+        if (result.plantType) {
+          plantForm.value.plantType = result.plantType
+        }
+        if (result.suggestedNickname) {
+          plantForm.value.nickname = result.suggestedNickname
+        }
+        if (result.careNotes) {
+          plantForm.value.notes = result.careNotes
+        }
+        if (result.wateringFrequency) {
+          plantForm.value.wateringFrequency = result.wateringFrequency
+        }
+        if (result.lightRequirement) {
+          plantForm.value.lightRequirement = result.lightRequirement
+        }
+        if (typeof result.needsFertilizer === 'boolean') {
+          plantForm.value.needsFertilizer = result.needsFertilizer
+        }
+        if (typeof result.needsPruning === 'boolean') {
+          plantForm.value.needsPruning = result.needsPruning
+        }
+
+        console.log('AI Analysis completed:', result)
+      }
+    } catch (aiError) {
+      console.error('AI analysis failed:', aiError)
+      // Continue without AI - user can still fill manually
+    } finally {
+      analyzingPlant.value = false
+    }
   } catch (error) {
     console.error('Error processing photo:', error)
   }
@@ -538,6 +711,9 @@ const removePhoto = () => {
   }
   plantForm.value.photoURL = ''
   plantForm.value._photoFile = null
+  // Clear AI analysis when photo is removed
+  aiAnalysisResult.value = null
+  analyzingPlant.value = false
 }
 
 const stopCamera = () => {
@@ -588,16 +764,20 @@ const savePlant = async () => {
       // Add new plant
       const docRef = await addDoc(collection(db, 'plants'), plantData)
 
-      // Log activity
-      await addDoc(collection(db, 'users', user.value.uid, 'activities'), {
-        type: 'plant_added',
-        title: 'Added New Plant',
-        description: `Welcome ${plantData.nickname} to your collection!`,
-        plantId: docRef.id,
-        timestamp: new Date(),
-        userId: user.value.uid,
-        xpEarned: 10
-      })
+      // Log activity (non-critical, don't fail if this fails)
+      try {
+        await addDoc(collection(db, 'users', user.value.uid, 'activities'), {
+          type: 'plant_added',
+          title: 'Added New Plant',
+          description: `Welcome ${plantData.nickname} to your collection!`,
+          plantId: docRef.id,
+          timestamp: new Date(),
+          userId: user.value.uid,
+          xpEarned: 10,
+        })
+      } catch (err) {
+        console.error('Failed to log activity:', err)
+      }
 
       // Increment user's plant count first so achievement sync reads the updated value
       try {
@@ -733,6 +913,39 @@ onUnmounted(() => {
 
 .capture-button {
   border: 4px solid white !important;
+}
+
+/* AI Analysis Styles */
+.photo-analyzing {
+  position: relative;
+}
+
+.photo-analyzing::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(103, 58, 183, 0.1) 0%,
+    rgba(156, 39, 176, 0.1) 50%,
+    rgba(103, 58, 183, 0.1) 100%
+  );
+  animation: ai-pulse 2s ease-in-out infinite;
+  border-radius: 12px;
+  pointer-events: none;
+}
+
+@keyframes ai-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
 @media (max-width: 600px) {
