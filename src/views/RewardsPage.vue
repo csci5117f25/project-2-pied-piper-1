@@ -157,11 +157,11 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { onAuthStateChanged } from 'firebase/auth'
-import { collection, getDocs, query, orderBy, limit, where } from 'firebase/firestore'
+import { collection, getDocs, query, orderBy, limit, where, onSnapshot } from 'firebase/firestore'
 import { auth, db } from '@/firebase'
-import { checkDailyAchievementReset } from '@/utils/achievements'
+import { checkDailyAchievementReset, syncAllAchievements } from '@/utils/achievements'
 
 // User stats
 const userStats = ref({
@@ -340,14 +340,22 @@ const formatTime = (date) => {
 onMounted(() => {
   onAuthStateChanged(auth, async (user) => {
     if (user) {
-      // Run independent operations in parallel for faster loading
-      await Promise.all([
-        checkDailyAchievementReset(user.uid),
-        loadUserStatsAndAchievements(user.uid),
-        loadRecentActivities(user.uid),
-      ])
+      // First, sync all achievements to ensure accurate progress
+      await syncAllAchievements(user.uid)
+
+      // Then check daily reset and load activities
+      await Promise.all([checkDailyAchievementReset(user.uid), loadRecentActivities(user.uid)])
+
+      // Set up real-time listeners for live updates
+      setupRealtimeListeners(user.uid)
     }
   })
+})
+
+// Clean up listeners on unmount
+onUnmounted(() => {
+  if (unsubscribePlants) unsubscribePlants()
+  if (unsubscribeAchievements) unsubscribeAchievements()
 })
 
 // Helper to parse Firestore Timestamp or ISO string
@@ -362,90 +370,96 @@ const parseUnlockedDate = (val) => {
   }
 }
 
-// Load user stats and achievements from Firestore (optimized - parallel queries)
-const loadUserStatsAndAchievements = async (userId) => {
-  try {
-    // Run all independent queries in parallel
-    const [plantsSnap, achievementsSnap] = await Promise.all([
-      getDocs(query(collection(db, 'plants'), where('userId', '==', userId))),
-      getDocs(collection(db, 'users', userId, 'achievements')),
-    ])
+// Store unsubscribe functions
+let unsubscribePlants = null
+let unsubscribeAchievements = null
 
-    // Process achievements data once
-    const unlockedCount = achievementsSnap.docs.filter((doc) => doc.data().unlocked).length
+// Process achievements snapshot data
+const processAchievementsSnapshot = (achievementsSnap) => {
+  const unlockedCount = achievementsSnap.docs.filter((doc) => doc.data().unlocked).length
 
-    // Calculate watering streak from Water Warrior achievement
-    let wateringStreak = 0
-    const waterWarriorDoc = achievementsSnap.docs.find((doc) => doc.id === 'water-warrior')
-    if (waterWarriorDoc) {
-      const waterWarriorData = waterWarriorDoc.data()
-      const progress = waterWarriorData.progress || 0
-      const lastCompletedDate = waterWarriorData.lastCompletedDate
+  // Calculate watering streak from Water Warrior achievement
+  let wateringStreak = 0
+  const waterWarriorDoc = achievementsSnap.docs.find((doc) => doc.id === 'water-warrior')
+  if (waterWarriorDoc) {
+    const waterWarriorData = waterWarriorDoc.data()
+    const progress = waterWarriorData.progress || 0
+    const lastCompletedDate = waterWarriorData.lastCompletedDate
 
-      if (lastCompletedDate) {
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
-        const lastDate = new Date(lastCompletedDate)
-        lastDate.setHours(0, 0, 0, 0)
-        const daysDiff = Math.floor((today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24))
+    if (lastCompletedDate) {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const lastDate = new Date(lastCompletedDate)
+      lastDate.setHours(0, 0, 0, 0)
+      const daysDiff = Math.floor((today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24))
 
-        if (daysDiff === 0 || daysDiff === 1) {
-          wateringStreak = progress
-        } else {
-          wateringStreak = 0
-        }
-      } else {
+      if (daysDiff === 0 || daysDiff === 1) {
         wateringStreak = progress
+      } else {
+        wateringStreak = 0
       }
+    } else {
+      wateringStreak = progress
     }
+  }
 
-    // Update achievements list first (needed for XP calculation)
-    achievementsSnap.forEach((doc) => {
-      const achievementData = doc.data()
-      const achievement = achievements.value.find(
-        (a) => a.id === doc.id || a.id === achievementData.id,
-      )
+  // Update achievements list (needed for XP calculation)
+  achievementsSnap.forEach((doc) => {
+    const achievementData = doc.data()
+    const achievement = achievements.value.find(
+      (a) => a.id === doc.id || a.id === achievementData.id,
+    )
 
-      if (achievement) {
-        achievement.progress =
+    if (achievement) {
+      achievement.progress =
+        typeof achievementData.progress === 'number'
+          ? achievementData.progress
+          : achievementData.progress || 0
+      achievement.unlocked = !!achievementData.unlocked
+      achievement.unlockedDate = parseUnlockedDate(achievementData.unlockedDate)
+      if (achievementData.xpReward !== undefined) {
+        achievement.xpReward = achievementData.xpReward
+      }
+    } else {
+      achievements.value.push({
+        id: doc.id,
+        name: achievementData.name || doc.id,
+        description: achievementData.description || '',
+        icon: achievementData.icon || 'mdi-trophy',
+        color: achievementData.color || 'grey',
+        xpReward: achievementData.xpReward || 0,
+        target: achievementData.target || achievementData.goal || 1,
+        progress:
           typeof achievementData.progress === 'number'
             ? achievementData.progress
-            : achievementData.progress || 0
-        achievement.unlocked = !!achievementData.unlocked
-        achievement.unlockedDate = parseUnlockedDate(achievementData.unlockedDate)
-        // Update xpReward from Firestore if available (in case it was changed)
-        if (achievementData.xpReward !== undefined) {
-          achievement.xpReward = achievementData.xpReward
-        }
-      } else {
-        achievements.value.push({
-          id: doc.id,
-          name: achievementData.name || doc.id,
-          description: achievementData.description || '',
-          icon: achievementData.icon || 'mdi-trophy',
-          color: achievementData.color || 'grey',
-          xpReward: achievementData.xpReward || 0,
-          target: achievementData.target || achievementData.goal || 1,
-          progress:
-            typeof achievementData.progress === 'number'
-              ? achievementData.progress
-              : achievementData.progress || 0,
-          unlocked: !!achievementData.unlocked,
-          unlockedDate: parseUnlockedDate(achievementData.unlockedDate),
-        })
-      }
+            : achievementData.progress || 0,
+        unlocked: !!achievementData.unlocked,
+        unlockedDate: parseUnlockedDate(achievementData.unlockedDate),
+      })
+    }
+  })
+
+  return { unlockedCount, wateringStreak }
+}
+
+// Set up real-time listeners for user stats and achievements
+const setupRealtimeListeners = (userId) => {
+  try {
+    // Listen to plants collection for real-time count
+    const plantsQuery = query(collection(db, 'plants'), where('userId', '==', userId))
+    unsubscribePlants = onSnapshot(plantsQuery, (snapshot) => {
+      userStats.value.totalPlants = snapshot.size
     })
 
-    // Update user stats (XP is now calculated from achievements, not stored)
-    userStats.value = {
-      totalPlants: plantsSnap.size,
-      wateringStreak: wateringStreak,
-      achievementsUnlocked: unlockedCount,
-      currentXP: 0, // Not used anymore - calculated from achievements
-      totalXP: 0, // Not used anymore - calculated from achievements
-    }
+    // Listen to achievements for real-time updates
+    const achievementsRef = collection(db, 'users', userId, 'achievements')
+    unsubscribeAchievements = onSnapshot(achievementsRef, (snapshot) => {
+      const { unlockedCount, wateringStreak } = processAchievementsSnapshot(snapshot)
+      userStats.value.achievementsUnlocked = unlockedCount
+      userStats.value.wateringStreak = wateringStreak
+    })
   } catch (error) {
-    console.error('Error loading user stats and achievements:', error)
+    console.error('Error setting up real-time listeners:', error)
   }
 }
 

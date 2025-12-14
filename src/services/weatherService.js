@@ -1,10 +1,19 @@
 /**
  * Weather Service - OpenWeatherMap API Integration
  * Provides weather data and smart watering recommendations
+ * Uses Cloud Functions to protect API keys
  */
 
+import { getFunctions, httpsCallable } from 'firebase/functions'
+import { app } from '@/firebase'
+
+// Initialize Cloud Functions
+const functions = getFunctions(app)
+const getWeatherFunction = httpsCallable(functions, 'getWeather')
+
+// Fallback to direct API for development (if .env.local exists)
 const API_KEY = import.meta.env.VITE_OPENWEATHER_API_KEY
-const BASE_URL = 'https://api.openweathermap.org/data/2.5'
+const USE_CLOUD_FUNCTIONS = import.meta.env.VITE_USE_CLOUD_FUNCTIONS === 'true'
 
 // Cache weather data to reduce API calls
 const weatherCache = new Map()
@@ -14,10 +23,6 @@ const CACHE_DURATION = 30 * 60 * 1000 // 30 minutes
  * Get current weather by coordinates
  */
 export async function getCurrentWeather(lat, lon) {
-  if (!API_KEY || API_KEY === 'your_openweathermap_api_key') {
-    throw new Error('OpenWeatherMap API key not configured')
-  }
-
   const cacheKey = `current_${lat}_${lon}`
   const cached = weatherCache.get(cacheKey)
 
@@ -26,19 +31,22 @@ export async function getCurrentWeather(lat, lon) {
   }
 
   try {
-    const response = await fetch(
-      `${BASE_URL}/weather?lat=${lat}&lon=${lon}&units=metric&appid=${API_KEY}`,
-    )
+    let data
 
-    if (response.status === 401) {
-      throw new Error('Weather data temporarily unavailable. Using default settings.')
+    // Use Cloud Function in production, direct API in development
+    if (USE_CLOUD_FUNCTIONS || !API_KEY) {
+      const result = await getWeatherFunction({ lat, lon, type: 'current' })
+      data = result.data
+    } else {
+      // Fallback for local development
+      const response = await fetch(
+        `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&appid=${API_KEY}`,
+      )
+      if (!response.ok) {
+        throw new Error('Weather data unavailable')
+      }
+      data = await response.json()
     }
-
-    if (!response.ok) {
-      throw new Error(`Weather data unavailable. Using default settings.`)
-    }
-
-    const data = await response.json()
 
     const weatherData = {
       temperature: Math.round(data.main.temp),
@@ -68,10 +76,6 @@ export async function getCurrentWeather(lat, lon) {
  * Get 5-day weather forecast
  */
 export async function getWeatherForecast(lat, lon) {
-  if (!API_KEY || API_KEY === 'your_openweathermap_api_key') {
-    throw new Error('OpenWeatherMap API key not configured')
-  }
-
   const cacheKey = `forecast_${lat}_${lon}`
   const cached = weatherCache.get(cacheKey)
 
@@ -80,15 +84,22 @@ export async function getWeatherForecast(lat, lon) {
   }
 
   try {
-    const response = await fetch(
-      `${BASE_URL}/forecast?lat=${lat}&lon=${lon}&units=metric&appid=${API_KEY}`,
-    )
+    let data
 
-    if (!response.ok) {
-      throw new Error(`Weather API error: ${response.statusText}`)
+    // Use Cloud Function in production, direct API in development
+    if (USE_CLOUD_FUNCTIONS || !API_KEY) {
+      const result = await getWeatherFunction({ lat, lon, type: 'forecast' })
+      data = result.data
+    } else {
+      // Fallback for local development
+      const response = await fetch(
+        `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&units=metric&appid=${API_KEY}`,
+      )
+      if (!response.ok) {
+        throw new Error('Weather forecast unavailable')
+      }
+      data = await response.json()
     }
-
-    const data = await response.json()
 
     // Group by day and get daily summaries
     const dailyForecasts = []
