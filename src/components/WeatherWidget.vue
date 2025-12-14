@@ -27,6 +27,9 @@
           <v-icon :icon="weatherIcon" :color="iconColor" size="40"></v-icon>
         </div>
         <div class="weather-info">
+          <div class="weather-location" v-if="weatherData?.location">
+            {{ weatherData.location }}
+          </div>
           <div class="weather-temp">{{ weatherData?.temperature || '--' }}°</div>
           <div class="weather-desc">
             {{ weatherData?.description || weatherData?.condition || 'N/A' }}
@@ -176,6 +179,15 @@ const iconColor = computed(() => {
 
 .weather-info {
   flex: 1;
+}
+
+.weather-location {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgba(var(--v-theme-on-surface), 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
 }
 
 .weather-temp {

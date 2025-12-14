@@ -138,7 +138,9 @@
 import { ref, computed, watch } from 'vue'
 import { doc, updateDoc } from 'firebase/firestore'
 import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
-import { db, storage } from '@/firebase'
+import { db, storage, auth } from '@/firebase'
+import { handlePlantPhotographed } from '@/utils/achievements'
+import { logAchievementUnlocked, logPlantPhotoAdded } from '@/services/activityService'
 
 const props = defineProps({
   modelValue: Boolean,
@@ -308,6 +310,29 @@ const updatePlant = async () => {
 
     const plantRef = doc(db, 'plants', props.plant.id)
     await updateDoc(plantRef, updateData)
+
+    // If a new photo was added, check photo achievement
+    const uid = auth.currentUser?.uid
+    if (uid && form.value._photoFile && photoURL) {
+      try {
+        // Log photo added activity
+        logPlantPhotoAdded(uid, { id: props.plant.id, nickname: form.value.nickname }).catch(
+          (err) => {
+            console.error('Failed to log photo activity:', err)
+          },
+        )
+
+        // Check for photo achievement unlock
+        const photoUnlock = await handlePlantPhotographed(uid)
+        if (photoUnlock) {
+          logAchievementUnlocked(uid, photoUnlock).catch((err) => {
+            console.error('Failed to log achievement unlock:', err)
+          })
+        }
+      } catch (err) {
+        console.error('Failed to update photo achievement:', err)
+      }
+    }
 
     emit('plant-updated', { id: props.plant.id, ...updateData })
     closeDialog()

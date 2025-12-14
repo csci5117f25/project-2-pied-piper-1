@@ -132,6 +132,13 @@
     <v-snackbar v-model="showSuccess" color="success" :timeout="3000" location="top">
       {{ successMessage }}
     </v-snackbar>
+
+    <!-- Achievement Toast -->
+    <AchievementToast
+      v-model="showAchievementToast"
+      :achievement="unlockedAchievement"
+      @closed="onAchievementToastClosed"
+    />
   </div>
 </template>
 
@@ -141,6 +148,7 @@ import { onAuthStateChanged } from 'firebase/auth'
 import { collection, query, where, onSnapshot, doc, updateDoc, getDoc } from 'firebase/firestore'
 import { auth, db } from '@/firebase'
 import { handlePlantWatered, handleAllPlantsHealthy } from '@/utils/achievements'
+import { logPlantWatered, logAchievementUnlocked } from '@/services/activityService'
 import { getWeatherForCurrentLocation } from '@/services/weatherService'
 import {
   scheduleLocalNotifications,
@@ -150,6 +158,7 @@ import {
 } from '@/services/notificationService'
 import WeatherWidget from '@/components/WeatherWidget.vue'
 import CalendarWidget from '@/components/CalendarWidget.vue'
+import AchievementToast from '@/components/AchievementToast.vue'
 
 // Helper functions for greeting
 const getGreeting = () => {
@@ -173,11 +182,38 @@ const showSuccess = ref(false)
 const successMessage = ref('')
 const plants = ref([])
 
+// Achievement toast
+const showAchievementToast = ref(false)
+const unlockedAchievement = ref(null)
+const achievementQueue = ref([])
+
 // Weather data
 const weatherData = ref(null)
 const wateringRecommendation = ref(null)
 const weatherLoading = ref(false)
 const weatherError = ref(null)
+
+// Show next achievement in queue
+const showNextAchievement = () => {
+  if (achievementQueue.value.length > 0) {
+    unlockedAchievement.value = achievementQueue.value.shift()
+    showAchievementToast.value = true
+  }
+}
+
+// Queue achievements to show
+const queueAchievements = (unlocks) => {
+  if (!unlocks || unlocks.length === 0) return
+  achievementQueue.value.push(...unlocks)
+  if (!showAchievementToast.value) {
+    showNextAchievement()
+  }
+}
+
+// Handle achievement toast closed
+const onAchievementToastClosed = () => {
+  showNextAchievement()
+}
 
 // Calendar event handler
 const onDaySelected = (day) => {
@@ -512,15 +548,41 @@ const completePlantWatering = async (plant) => {
       lastWatered: new Date(),
     })
 
-    // Update achievements
+    // Log activity and update achievements
     const uid = auth.currentUser?.uid
     if (uid) {
-      handlePlantWatered(uid).catch((err) => {
-        console.error('Failed to update achievements after watering:', err)
+      // Log the watering activity
+      logPlantWatered(uid, plant).catch((err) => {
+        console.error('Failed to log watering activity:', err)
       })
-      handleAllPlantsHealthy(uid).catch((err) => {
-        console.error('Failed to update Green Thumb achievement:', err)
-      })
+
+      // Update achievements and check for unlocks
+      const [wateringUnlocks, greenThumbUnlock] = await Promise.all([
+        handlePlantWatered(uid).catch((err) => {
+          console.error('Failed to update achievements after watering:', err)
+          return []
+        }),
+        handleAllPlantsHealthy(uid).catch((err) => {
+          console.error('Failed to update Green Thumb achievement:', err)
+          return null
+        }),
+      ])
+
+      // Collect all unlocked achievements
+      const allUnlocks = [...(wateringUnlocks || [])]
+      if (greenThumbUnlock) allUnlocks.push(greenThumbUnlock)
+
+      // Log and show toasts for unlocked achievements
+      for (const unlock of allUnlocks) {
+        logAchievementUnlocked(uid, unlock).catch((err) => {
+          console.error('Failed to log achievement unlock:', err)
+        })
+      }
+
+      // Queue achievement toasts
+      if (allUnlocks.length > 0) {
+        queueAchievements(allUnlocks)
+      }
     }
 
     showSuccess.value = true

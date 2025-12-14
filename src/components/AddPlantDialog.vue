@@ -385,7 +385,8 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { collection, addDoc, doc, updateDoc, increment } from 'firebase/firestore'
-import { handlePlantAdded } from '@/utils/achievements'
+import { handlePlantAdded, handlePlantPhotographed } from '@/utils/achievements'
+import { logAchievementUnlocked } from '@/services/activityService'
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { onAuthStateChanged } from 'firebase/auth'
 import { auth, db, storage } from '@/firebase'
@@ -789,7 +790,23 @@ const savePlant = async () => {
 
       // Update achievements for this user (transaction-safe)
       try {
-        await handlePlantAdded(user.value.uid, docRef.id)
+        const plantUnlocks = await handlePlantAdded(user.value.uid, docRef.id)
+
+        // If plant has a photo, also check photo achievement
+        let photoUnlock = null
+        if (plantData.photoURL) {
+          photoUnlock = await handlePlantPhotographed(user.value.uid)
+        }
+
+        // Log any unlocked achievements
+        const allUnlocks = [...(plantUnlocks || [])]
+        if (photoUnlock) allUnlocks.push(photoUnlock)
+
+        for (const unlock of allUnlocks) {
+          logAchievementUnlocked(user.value.uid, unlock).catch((err) => {
+            console.error('Failed to log achievement unlock:', err)
+          })
+        }
       } catch (err) {
         console.error('Failed to update achievements after adding plant:', err)
       }

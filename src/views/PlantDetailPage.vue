@@ -303,7 +303,13 @@ import {
   handlePlantRemoved,
   handlePlantWatered,
   handleAllPlantsHealthy,
+  handlePlantPhotographed,
 } from '@/utils/achievements'
+import {
+  logPlantWatered,
+  logAchievementUnlocked,
+  logPlantPhotoAdded,
+} from '@/services/activityService'
 import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
 import { onAuthStateChanged } from 'firebase/auth'
 import { auth, db, storage } from '@/firebase'
@@ -540,15 +546,35 @@ const waterPlant = async () => {
     })
     plant.value.lastWatered = new Date()
 
-    // Update achievements
+    // Log activity and update achievements
     const uid = auth.currentUser?.uid
     if (uid) {
-      handlePlantWatered(uid).catch((err) => {
-        console.error('Failed to update achievements after watering:', err)
+      // Log the watering activity
+      logPlantWatered(uid, { id: route.params.id, ...plant.value }).catch((err) => {
+        console.error('Failed to log watering activity:', err)
       })
-      handleAllPlantsHealthy(uid).catch((err) => {
-        console.error('Failed to update Green Thumb achievement:', err)
-      })
+
+      // Update achievements and check for unlocks
+      const [wateringUnlocks, greenThumbUnlock] = await Promise.all([
+        handlePlantWatered(uid).catch((err) => {
+          console.error('Failed to update achievements after watering:', err)
+          return []
+        }),
+        handleAllPlantsHealthy(uid).catch((err) => {
+          console.error('Failed to update Green Thumb achievement:', err)
+          return null
+        }),
+      ])
+
+      // Log any unlocked achievements
+      const allUnlocks = [...(wateringUnlocks || [])]
+      if (greenThumbUnlock) allUnlocks.push(greenThumbUnlock)
+
+      for (const unlock of allUnlocks) {
+        logAchievementUnlocked(uid, unlock).catch((err) => {
+          console.error('Failed to log achievement unlock:', err)
+        })
+      }
     }
   } catch (error) {
     console.error('Error updating watering:', error)

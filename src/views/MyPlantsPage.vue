@@ -13,20 +13,10 @@
           </p>
         </div>
       </div>
-      <v-btn
-        @click="showAddDialog = true"
-        color="primary"
-        size="large"
-        prepend-icon="mdi-plus"
-        rounded="lg"
-        class="add-btn hidden-xs"
-      >
-        Add Plant
-      </v-btn>
     </div>
 
-    <!-- Search and Filter -->
-    <div class="filters-section">
+    <!-- Search -->
+    <div class="search-section">
       <v-text-field
         v-model="searchQuery"
         prepend-inner-icon="mdi-magnify"
@@ -36,16 +26,6 @@
         clearable
         hide-details
         class="search-field"
-        rounded="lg"
-      />
-      <v-select
-        v-model="filterBy"
-        :items="filterOptions"
-        placeholder="Filter by"
-        variant="outlined"
-        density="comfortable"
-        hide-details
-        class="filter-select"
         rounded="lg"
       />
     </div>
@@ -162,6 +142,13 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- Achievement Toast -->
+    <AchievementToast
+      v-model="showAchievementToast"
+      :achievement="unlockedAchievement"
+      @closed="onAchievementToastClosed"
+    />
   </v-container>
 </template>
 
@@ -186,16 +173,17 @@ import {
   handlePlantWatered,
   handleAllPlantsHealthy,
 } from '@/utils/achievements'
+import { logPlantWatered, logAchievementUnlocked } from '@/services/activityService'
 import { auth, db, storage } from '@/firebase'
 import AddPlantDialog from '@/components/AddPlantDialog.vue'
 import EditPlantDialog from '@/components/EditPlantDialog.vue'
+import AchievementToast from '@/components/AchievementToast.vue'
 
 const router = useRouter()
 
 // Reactive data
 const plants = ref([])
 const searchQuery = ref('')
-const filterBy = ref('all')
 const showAddDialog = ref(false)
 const showSuccess = ref(false)
 const successMessage = ref('')
@@ -204,52 +192,46 @@ const plantToDelete = ref(null)
 const plantToEdit = ref(null)
 const showEditDialog = ref(false)
 
-// Filter options
-const filterOptions = [
-  { title: 'All Plants', value: 'all' },
-  { title: 'Needs Water', value: 'needs-water' },
-  { title: 'Recently Watered', value: 'recently-watered' },
-  { title: 'Indoor', value: 'indoor' },
-  { title: 'Outdoor', value: 'outdoor' },
-]
+// Achievement toast
+const showAchievementToast = ref(false)
+const unlockedAchievement = ref(null)
+const achievementQueue = ref([])
+
+// Show next achievement in queue
+const showNextAchievement = () => {
+  if (achievementQueue.value.length > 0) {
+    unlockedAchievement.value = achievementQueue.value.shift()
+    showAchievementToast.value = true
+  }
+}
+
+// Queue achievements to show
+const queueAchievements = (unlocks) => {
+  if (!unlocks || unlocks.length === 0) return
+  achievementQueue.value.push(...unlocks)
+  if (!showAchievementToast.value) {
+    showNextAchievement()
+  }
+}
+
+// Handle achievement toast closed
+const onAchievementToastClosed = () => {
+  showNextAchievement()
+}
 
 // Computed properties
 const filteredPlants = computed(() => {
   let filtered = plants.value
 
   // Apply search filter
-  if (searchQuery.value) {
-    const query = searchQuery.value.toLowerCase()
+  if (searchQuery.value && searchQuery.value.trim()) {
+    const searchTerm = searchQuery.value.toLowerCase().trim()
     filtered = filtered.filter(
       (plant) =>
-        plant.nickname.toLowerCase().includes(query) ||
-        plant.plantType.toLowerCase().includes(query) ||
-        plant.location.toLowerCase().includes(query),
+        (plant.nickname && plant.nickname.toLowerCase().includes(searchTerm)) ||
+        (plant.plantType && plant.plantType.toLowerCase().includes(searchTerm)) ||
+        (plant.location && plant.location.toLowerCase().includes(searchTerm)),
     )
-  }
-
-  // Apply category filter
-  if (filterBy.value && filterBy.value !== 'all') {
-    filtered = filtered.filter((plant) => {
-      switch (filterBy.value) {
-        case 'needs-water':
-          return needsWatering(plant)
-        case 'recently-watered':
-          return !needsWatering(plant)
-        case 'indoor':
-          return (
-            plant.location?.toLowerCase().includes('indoor') ||
-            plant.location?.toLowerCase().includes('inside')
-          )
-        case 'outdoor':
-          return (
-            plant.location?.toLowerCase().includes('outdoor') ||
-            plant.location?.toLowerCase().includes('outside')
-          )
-        default:
-          return true
-      }
-    })
   }
 
   return filtered
@@ -329,15 +311,41 @@ const waterPlant = async (plant) => {
       lastWatered: new Date(),
     })
 
-    // Update achievements
+    // Log activity and update achievements
     const uid = auth.currentUser?.uid
     if (uid) {
-      handlePlantWatered(uid).catch((err) => {
-        console.error('Failed to update achievements after watering:', err)
+      // Log the watering activity
+      logPlantWatered(uid, plant).catch((err) => {
+        console.error('Failed to log watering activity:', err)
       })
-      handleAllPlantsHealthy(uid).catch((err) => {
-        console.error('Failed to update Green Thumb achievement:', err)
-      })
+
+      // Update achievements and check for unlocks
+      const [wateringUnlocks, greenThumbUnlock] = await Promise.all([
+        handlePlantWatered(uid).catch((err) => {
+          console.error('Failed to update achievements after watering:', err)
+          return []
+        }),
+        handleAllPlantsHealthy(uid).catch((err) => {
+          console.error('Failed to update Green Thumb achievement:', err)
+          return null
+        }),
+      ])
+
+      // Collect all unlocked achievements
+      const allUnlocks = [...(wateringUnlocks || [])]
+      if (greenThumbUnlock) allUnlocks.push(greenThumbUnlock)
+
+      // Log and show toasts for unlocked achievements
+      for (const unlock of allUnlocks) {
+        logAchievementUnlocked(uid, unlock).catch((err) => {
+          console.error('Failed to log achievement unlock:', err)
+        })
+      }
+
+      // Queue achievement toasts
+      if (allUnlocks.length > 0) {
+        queueAchievements(allUnlocks)
+      }
     }
 
     showSuccess.value = true
@@ -505,22 +513,22 @@ onMounted(() => {
   box-shadow: 0 4px 14px rgba(var(--v-theme-primary), 0.3);
 }
 
-/* Filters Section */
-.filters-section {
-  display: grid;
-  grid-template-columns: 1fr 200px;
-  gap: 16px;
+/* Search Section */
+.search-section {
   margin-bottom: 24px;
 }
 
 .search-field :deep(.v-field) {
   background: rgba(var(--v-theme-surface), 1);
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
-.filter-select :deep(.v-field) {
-  background: rgba(var(--v-theme-surface), 1);
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+.search-field :deep(.v-field--focused) {
+  border-color: rgb(var(--v-theme-primary));
+  box-shadow: 0 0 0 3px rgba(var(--v-theme-primary), 0.1);
 }
 
 /* Plants Grid */
@@ -538,12 +546,18 @@ onMounted(() => {
   overflow: hidden;
   cursor: pointer;
   transition: all 0.3s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .plant-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
   border-color: rgba(var(--v-theme-primary), 0.2);
+}
+
+.plant-card:active {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
 }
 
 /* Plant Image */
@@ -736,12 +750,9 @@ onMounted(() => {
     gap: 16px;
   }
 
-  .filters-section {
-    grid-template-columns: 1fr;
-  }
-
   .plants-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
   }
 }
 
@@ -758,6 +769,14 @@ onMounted(() => {
 
   .page-title {
     font-size: 1.5rem;
+  }
+
+  .plants-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .plant-image-container {
+    height: 180px;
   }
 }
 </style>

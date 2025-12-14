@@ -132,16 +132,16 @@
       </div>
     </v-navigation-drawer>
 
-    <!-- Floating Add Button -->
-    <v-fab
-      v-if="$route.name !== 'settings'"
+    <!-- Floating Add Button - Hidden -->
+    <!-- <v-fab
+      v-if="false"
       @click="showAddPlantDialog = true"
       icon="mdi-plus"
       color="primary"
       size="large"
       location="bottom end"
       class="fab-button"
-    />
+    /> -->
 
     <!-- Add Plant Dialog -->
     <AddPlantDialog v-model="showAddPlantDialog" @plant-added="onPlantAdded" />
