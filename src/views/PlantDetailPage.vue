@@ -29,7 +29,7 @@
               <div class="text-white mt-2">Tap to change photo</div>
             </div>
           </v-img>
-          <div v-else class="no-photo-placeholder" :class="{ 'editable': isEditing }">
+          <div v-else class="no-photo-placeholder" :class="{ editable: isEditing }">
             <v-icon size="64" color="grey-lighten-1">mdi-image-plus</v-icon>
             <div class="text-h6 mt-2">{{ isEditing ? 'Add Photo' : 'No Photo' }}</div>
           </div>
@@ -196,7 +196,10 @@
                 <v-icon start>mdi-content-cut</v-icon>
                 Pruning
               </v-chip>
-              <div v-if="!plant.needsFertilizer && !plant.needsPruning" class="text-body-2 text-medium-emphasis">
+              <div
+                v-if="!plant.needsFertilizer && !plant.needsPruning"
+                class="text-body-2 text-medium-emphasis"
+              >
                 No additional care needed
               </div>
             </div>
@@ -287,8 +290,20 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { doc, getDoc, updateDoc, deleteDoc, increment, collection, addDoc } from 'firebase/firestore'
-import { handlePlantRemoved, handlePlantWatered, handleAllPlantsHealthy } from '@/utils/achievements'
+import {
+  doc,
+  getDoc,
+  updateDoc,
+  deleteDoc,
+  increment,
+  collection,
+  addDoc,
+} from 'firebase/firestore'
+import {
+  handlePlantRemoved,
+  handlePlantWatered,
+  handleAllPlantsHealthy,
+} from '@/utils/achievements'
 import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
 import { onAuthStateChanged } from 'firebase/auth'
 import { auth, db, storage } from '@/firebase'
@@ -400,7 +415,10 @@ const savePlant = async () => {
     // Upload photo if there's a new file
     if (plantForm.value._photoFile) {
       // Delete old photo from storage if it exists and is different
-      if (plant.value?.photoURL && plant.value.photoURL.startsWith('https://firebasestorage.googleapis.com')) {
+      if (
+        plant.value?.photoURL &&
+        plant.value.photoURL.startsWith('https://firebasestorage.googleapis.com')
+      ) {
         try {
           const url = new URL(plant.value.photoURL)
           const pathMatch = url.pathname.match(/o\/(.*?)(?:\?|$)/)
@@ -455,7 +473,7 @@ const deletePlant = async () => {
           // Extract file path from Firebase Storage URL
           const url = new URL(plant.value.photoURL)
           const pathMatch = url.pathname.match(/o\/(.*?)(?:\?|$)/)
-          
+
           if (pathMatch) {
             const filePath = decodeURIComponent(pathMatch[1])
             const photoRef = storageRef(storage, filePath)
@@ -572,12 +590,12 @@ const handleFileSelect = (event) => {
 
 // Helper methods
 const getWateringText = (frequency) => {
-  const option = wateringOptions.find(opt => opt.value === frequency)
+  const option = wateringOptions.find((opt) => opt.value === frequency)
   return option ? option.title : frequency
 }
 
 const getLightText = (requirement) => {
-  const option = lightOptions.find(opt => opt.value === requirement)
+  const option = lightOptions.find((opt) => opt.value === requirement)
   return option ? option.title : requirement
 }
 
@@ -592,7 +610,7 @@ const loadPlant = async () => {
   try {
     const plantRef = doc(db, 'plants', route.params.id)
     const plantDoc = await getDoc(plantRef)
-    
+
     if (plantDoc.exists()) {
       plant.value = { id: plantDoc.id, ...plantDoc.data() }
       Object.assign(plantForm.value, plant.value)
@@ -628,19 +646,26 @@ onMounted(() => {
   margin: 0 auto;
 }
 
+/* Modern App Bar */
+.plant-detail-page :deep(.v-app-bar) {
+  background: rgba(var(--v-theme-surface), 0.8) !important;
+  backdrop-filter: blur(10px);
+}
+
 .photo-section {
   position: relative;
 }
 
 .photo-container {
   position: relative;
-  border-radius: 16px;
+  border-radius: var(--radius-xl, 16px);
   overflow: hidden;
   cursor: pointer;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
 }
 
 .plant-photo {
-  border-radius: 16px;
+  border-radius: var(--radius-xl, 16px);
 }
 
 .photo-overlay {
@@ -650,12 +675,13 @@ onMounted(() => {
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   opacity: 0;
-  transition: opacity 0.2s ease;
+  transition: opacity 0.3s ease;
 }
 
 .photo-container:hover .photo-overlay {
@@ -664,58 +690,102 @@ onMounted(() => {
 
 .no-photo-placeholder {
   height: 300px;
-  border: 2px dashed #e0e0e0;
-  border-radius: 16px;
+  border: 2px dashed rgba(var(--v-theme-on-surface), 0.15);
+  border-radius: var(--radius-xl, 16px);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: #fafafa;
+  background: linear-gradient(
+    135deg,
+    rgba(var(--v-theme-primary), 0.04),
+    rgba(var(--v-theme-success), 0.04)
+  );
 }
 
 .no-photo-placeholder.editable {
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
 }
 
 .no-photo-placeholder.editable:hover {
-  border-color: #4caf50;
-  background: rgba(76, 175, 80, 0.05);
+  border-color: rgb(var(--v-theme-primary));
+  background: linear-gradient(
+    135deg,
+    rgba(var(--v-theme-primary), 0.08),
+    rgba(var(--v-theme-success), 0.08)
+  );
+  transform: scale(1.01);
 }
 
 .plant-info-card,
 .care-schedule-card {
-  border-radius: 16px !important;
+  border-radius: var(--radius-xl, 16px) !important;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+}
+
+.plant-info-card :deep(.v-card-text) h1 {
+  font-family: var(--font-display, 'Manrope', sans-serif);
+}
+
+.plant-info-card :deep(.v-card-text .text-h6) {
+  font-weight: 500;
+}
+
+.care-schedule-card :deep(.v-card-title) {
+  font-family: var(--font-display, 'Manrope', sans-serif);
+  font-weight: 700;
 }
 
 .info-item {
   display: flex;
   align-items: flex-start;
-  padding: 8px 0;
+  padding: 12px 0;
 }
 
 .care-item {
-  border-left: 3px solid rgba(var(--v-theme-primary), 0.2);
+  border-left: 3px solid rgba(var(--v-theme-primary), 0.3);
   padding-left: 16px;
   margin-left: 8px;
+  border-radius: 0 var(--radius-md, 8px) var(--radius-md, 8px) 0;
 }
 
 .plant-name-input :deep(.v-field) {
   font-size: 1.5rem;
   font-weight: bold;
+  border-radius: var(--radius-lg, 12px);
 }
 
 .action-buttons {
   padding: 0 16px;
 }
 
+/* Quick Actions Styling */
+.plant-detail-page :deep(.v-btn) {
+  border-radius: var(--radius-lg, 12px);
+  font-weight: 600;
+}
+
 .plant-content {
   padding: 0 12px;
+}
+
+/* Dialog Styling */
+.plant-detail-page :deep(.v-dialog .v-card) {
+  border-radius: var(--radius-xl, 16px);
 }
 
 @media (max-width: 600px) {
   .plant-content {
     padding: 0 8px;
+  }
+
+  .photo-container {
+    border-radius: var(--radius-lg, 12px);
+  }
+
+  .plant-photo {
+    border-radius: var(--radius-lg, 12px);
   }
 }
 </style>

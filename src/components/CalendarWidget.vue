@@ -1,125 +1,89 @@
 <template>
-  <v-card class="calendar-widget" elevation="2">
-    <v-card-title class="d-flex align-center justify-space-between">
-      <div class="d-flex align-center">
-        <v-icon class="mr-2" color="primary">mdi-calendar</v-icon>
-        {{ viewMode === 'week' ? 'This Week' : 'This Month' }}
+  <div class="calendar-widget">
+    <!-- Header -->
+    <div class="calendar-header">
+      <div class="header-left">
+        <v-icon class="header-icon" color="primary">mdi-calendar-month</v-icon>
+        <span class="header-title">{{ viewMode === 'week' ? 'This Week' : 'This Month' }}</span>
       </div>
-      <div class="d-flex align-center gap-2">
-        <v-btn-toggle 
-          v-model="viewMode" 
-          mandatory 
-          density="compact"
-          class="mr-2"
-        >
-          <v-btn value="week" size="small">Week</v-btn>
-          <v-btn value="month" size="small">Month</v-btn>
-        </v-btn-toggle>
-        <v-btn 
-          @click="goToToday" 
-          size="small" 
-          variant="text" 
-          color="primary"
-        >
-          Today
-        </v-btn>
-      </div>
-    </v-card-title>
-
-    <v-card-text class="pa-4">
-      <!-- Navigation -->
-      <div class="d-flex align-center justify-space-between mb-3">
-        <v-btn 
-          @click="viewMode === 'week' ? previousWeek() : previousMonth()" 
-          icon="mdi-chevron-left" 
-          size="small" 
-          variant="text"
-        />
-        <div class="text-subtitle-1 font-weight-medium">
-          {{ viewMode === 'week' ? weekRange : monthRange }}
+      <div class="header-controls">
+        <div class="view-toggle">
+          <button
+            :class="['toggle-btn', { active: viewMode === 'week' }]"
+            @click="viewMode = 'week'"
+          >
+            Week
+          </button>
+          <button
+            :class="['toggle-btn', { active: viewMode === 'month' }]"
+            @click="viewMode = 'month'"
+          >
+            Month
+          </button>
         </div>
-        <v-btn 
-          @click="viewMode === 'week' ? nextWeek() : nextMonth()" 
-          icon="mdi-chevron-right" 
-          size="small" 
-          variant="text"
-        />
+        <button class="today-btn" @click="goToToday">Today</button>
+      </div>
+    </div>
+
+    <!-- Navigation -->
+    <div class="calendar-nav">
+      <button class="nav-btn" @click="viewMode === 'week' ? previousWeek() : previousMonth()">
+        <v-icon size="20">mdi-chevron-left</v-icon>
+      </button>
+      <span class="nav-label">{{ viewMode === 'week' ? weekRange : monthRange }}</span>
+      <button class="nav-btn" @click="viewMode === 'week' ? nextWeek() : nextMonth()">
+        <v-icon size="20">mdi-chevron-right</v-icon>
+      </button>
+    </div>
+
+    <!-- Week View -->
+    <div v-if="viewMode === 'week'" class="week-grid">
+      <div
+        v-for="day in weekDays"
+        :key="day.dateString"
+        class="week-day"
+        :class="{
+          'week-day--today': day.isToday,
+          'week-day--selected': day.isSelected,
+          'week-day--has-plants': day.plantCount > 0,
+        }"
+        @click="selectDay(day)"
+      >
+        <span class="week-day-name">{{ day.dayName }}</span>
+        <span class="week-day-number">{{ day.dayNumber }}</span>
+        <span v-if="day.plantCount > 0" class="week-day-badge">{{ day.plantCount }}</span>
+      </div>
+    </div>
+
+    <!-- Month View -->
+    <div v-else class="month-grid">
+      <!-- Day Headers -->
+      <div class="month-header-row">
+        <div v-for="dayName in dayHeaders" :key="dayName" class="month-header-cell">
+          {{ dayName }}
+        </div>
       </div>
 
-      <!-- Week View -->
-      <div v-if="viewMode === 'week'" class="calendar-days">
+      <!-- Month Days -->
+      <div class="month-days-grid">
         <div
-          v-for="day in weekDays"
+          v-for="day in monthDays"
           :key="day.dateString"
-          class="calendar-day"
-          :class="{ 
-            'calendar-day--today': day.isToday,
-            'calendar-day--selected': day.isSelected,
-            'calendar-day--has-plants': day.plantCount > 0
+          class="month-day"
+          :class="{
+            'month-day--today': day.isToday,
+            'month-day--selected': day.isSelected,
+            'month-day--has-plants': day.plantCount > 0,
+            'month-day--other': day.isOtherMonth,
           }"
           @click="selectDay(day)"
         >
-          <div class="day-name">{{ day.dayName }}</div>
-          <div class="day-number">{{ day.dayNumber }}</div>
-          <div class="plant-indicators">
-            <v-chip
-              v-if="day.plantCount > 0"
-              :color="day.isToday ? 'primary' : 'success'"
-              size="x-small"
-              class="plant-count-chip"
-            >
-              {{ day.plantCount }}
-            </v-chip>
-            <v-icon
-              v-else-if="day.isToday"
-              size="16"
-              color="primary"
-            >
-              mdi-circle-outline
-            </v-icon>
-          </div>
+          <span class="month-day-num">{{ day.dayNumber }}</span>
+          <span v-if="day.plantCount > 0" class="month-day-badge">{{ day.plantCount }}</span>
         </div>
       </div>
-
-      <!-- Month View -->
-      <div v-else class="month-calendar">
-        <!-- Day Headers -->
-        <div class="month-headers">
-          <div v-for="dayName in dayHeaders" :key="dayName" class="month-header">
-            {{ dayName }}
-          </div>
-        </div>
-        
-        <!-- Month Days -->
-        <div class="month-days">
-          <div
-            v-for="day in monthDays"
-            :key="day.dateString"
-            class="month-day"
-            :class="{ 
-              'month-day--today': day.isToday,
-              'month-day--selected': day.isSelected,
-              'month-day--has-plants': day.plantCount > 0,
-              'month-day--other-month': day.isOtherMonth
-            }"
-            @click="selectDay(day)"
-          >
-            <div class="month-day-number">{{ day.dayNumber }}</div>
-            <div class="month-plant-indicator">
-              <v-chip
-                v-if="day.plantCount > 0"
-                :color="day.isToday ? 'primary' : 'success'"
-                size="x-small"
-                class="month-plant-count-chip"
-              >
-                {{ day.plantCount }}
-              </v-chip>
-            </div>
-          </div>
-        </div>
-      </div>
-    </v-card-text>
-  </v-card>
+    </div>
+  </div>
 </template>
 
 <script setup>
@@ -129,8 +93,8 @@ import { ref, computed, onMounted } from 'vue'
 const props = defineProps({
   plants: {
     type: Array,
-    default: () => []
-  }
+    default: () => [],
+  },
 })
 
 // Emits
@@ -158,20 +122,22 @@ const needsWateringOnDate = (plant, targetDate) => {
     return false
   }
 
-  const lastWateredDate = plant.lastWatered.toDate ? plant.lastWatered.toDate() : new Date(plant.lastWatered)
+  const lastWateredDate = plant.lastWatered.toDate
+    ? plant.lastWatered.toDate()
+    : new Date(plant.lastWatered)
   const target = new Date(targetDate)
-  
+
   // Set both dates to midnight for accurate day comparison
   lastWateredDate.setHours(0, 0, 0, 0)
   target.setHours(0, 0, 0, 0)
-  
+
   const daysSinceWatering = Math.floor((target - lastWateredDate) / (1000 * 60 * 60 * 24))
 
   // Check if the target date falls exactly on a watering day
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const isToday = target.getTime() === today.getTime()
-  
+
   // Handle different watering frequencies
   if (plant.wateringFrequency === 'daily') {
     return daysSinceWatering >= 1
@@ -184,7 +150,9 @@ const needsWateringOnDate = (plant, targetDate) => {
     if (isToday && daysSinceWatering >= daysUntilNextWatering) {
       return true
     }
-    return daysSinceWatering >= daysUntilNextWatering && daysSinceWatering % daysUntilNextWatering === 0
+    return (
+      daysSinceWatering >= daysUntilNextWatering && daysSinceWatering % daysUntilNextWatering === 0
+    )
   } else {
     // Weekly, biweekly, monthly
     let daysUntilNextWatering
@@ -201,13 +169,15 @@ const needsWateringOnDate = (plant, targetDate) => {
       default:
         daysUntilNextWatering = 7 // Default to weekly
     }
-    
+
     // If the plant is overdue (daysSinceWatering > interval), show it on today
     if (isToday && daysSinceWatering >= daysUntilNextWatering) {
       return true
     }
     // Otherwise, show only on exact interval days (7, 14, 21 for weekly, etc.)
-    return daysSinceWatering >= daysUntilNextWatering && daysSinceWatering % daysUntilNextWatering === 0
+    return (
+      daysSinceWatering >= daysUntilNextWatering && daysSinceWatering % daysUntilNextWatering === 0
+    )
   }
 }
 
@@ -217,36 +187,36 @@ const getPlantCount = (date) => {
     return 0
   }
 
-  return props.plants.filter(plant => needsWateringOnDate(plant, date)).length
+  return props.plants.filter((plant) => needsWateringOnDate(plant, date)).length
 }
 
 // Computed properties
 const weekDays = computed(() => {
   const days = []
   const today = new Date()
-  
+
   for (let i = 0; i < 7; i++) {
     const date = new Date(currentWeekStart.value)
     date.setDate(currentWeekStart.value.getDate() + i)
     const dateString = date.toISOString().split('T')[0]
-    
+
     days.push({
       date: date,
       dateString: dateString,
       dayName: date.toLocaleDateString('en-US', { weekday: 'short' }),
       dayNumber: date.getDate(),
-      fullDate: date.toLocaleDateString('en-US', { 
-        weekday: 'long', 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
+      fullDate: date.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
       }),
       isToday: date.toDateString() === today.toDateString(),
       isSelected: date.toDateString() === selectedDate.value.toDateString(),
-      plantCount: getPlantCount(date)
+      plantCount: getPlantCount(date),
     })
   }
-  
+
   return days
 })
 
@@ -254,10 +224,10 @@ const weekRange = computed(() => {
   const start = new Date(currentWeekStart.value)
   const end = new Date(currentWeekStart.value)
   end.setDate(start.getDate() + 6)
-  
+
   const startMonth = start.toLocaleDateString('en-US', { month: 'short' })
   const endMonth = end.toLocaleDateString('en-US', { month: 'short' })
-  
+
   if (startMonth === endMonth) {
     return `${startMonth} ${start.getDate()}-${end.getDate()}`
   } else {
@@ -266,9 +236,9 @@ const weekRange = computed(() => {
 })
 
 const monthRange = computed(() => {
-  return currentMonth.value.toLocaleDateString('en-US', { 
-    month: 'long', 
-    year: 'numeric' 
+  return currentMonth.value.toLocaleDateString('en-US', {
+    month: 'long',
+    year: 'numeric',
   })
 })
 
@@ -280,34 +250,34 @@ const monthDays = computed(() => {
   const days = []
   const today = new Date()
   const firstDay = new Date(currentMonth.value.getFullYear(), currentMonth.value.getMonth(), 1)
-  
+
   // Start from the first Sunday of the calendar
   const startDate = new Date(firstDay)
   startDate.setDate(firstDay.getDate() - firstDay.getDay())
-  
+
   // Generate 42 days (6 weeks)
   for (let i = 0; i < 42; i++) {
     const date = new Date(startDate)
     date.setDate(startDate.getDate() + i)
     const dateString = date.toISOString().split('T')[0]
-    
+
     days.push({
       date: date,
       dateString: dateString,
       dayNumber: date.getDate(),
-      fullDate: date.toLocaleDateString('en-US', { 
-        weekday: 'long', 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
+      fullDate: date.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
       }),
       isToday: date.toDateString() === today.toDateString(),
       isSelected: date.toDateString() === selectedDate.value.toDateString(),
       isOtherMonth: date.getMonth() !== currentMonth.value.getMonth(),
-      plantCount: getPlantCount(date)
+      plantCount: getPlantCount(date),
     })
   }
-  
+
   return days
 })
 
@@ -317,23 +287,23 @@ const goToToday = () => {
   setWeekStart(today)
   setMonthStart(today)
   selectedDate.value = today
-  
+
   // Switch to weekly view when clicking Today
   viewMode.value = 'week'
-  
+
   // Emit day-selected event with today's day info
   const todayString = today.toISOString().split('T')[0]
   const dayInfo = {
     date: today,
     dateString: todayString,
-    fullDate: today.toLocaleDateString('en-US', { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
+    fullDate: today.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
     }),
     isToday: true,
-    plantCount: getPlantCount(today)
+    plantCount: getPlantCount(today),
   }
   emit('day-selected', dayInfo)
 }
@@ -386,121 +356,246 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* Modern Calendar Widget Styles */
 .calendar-widget {
-  border-radius: 16px !important;
+  background: rgba(var(--v-theme-surface), 1);
+  border-radius: var(--radius-xl, 16px);
+  padding: 20px;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
 }
 
-.calendar-days {
+/* Header */
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.header-icon {
+  font-size: 22px;
+}
+
+.header-title {
+  font-family: var(--font-display, 'Manrope', sans-serif);
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: rgba(var(--v-theme-on-surface), 0.9);
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* View Toggle */
+.view-toggle {
+  display: flex;
+  background: rgba(var(--v-theme-on-surface), 0.06);
+  border-radius: var(--radius-lg, 12px);
+  padding: 4px;
+}
+
+.toggle-btn {
+  padding: 6px 14px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  color: rgba(var(--v-theme-on-surface), 0.6);
+  border-radius: var(--radius-md, 8px);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.toggle-btn:hover {
+  color: rgba(var(--v-theme-on-surface), 0.9);
+}
+
+.toggle-btn.active {
+  background: rgba(var(--v-theme-primary), 1);
+  color: white;
+  box-shadow: 0 2px 8px rgba(var(--v-theme-primary), 0.3);
+}
+
+.today-btn {
+  padding: 6px 14px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  border: 1px solid rgba(var(--v-theme-primary), 0.3);
+  background: transparent;
+  color: rgb(var(--v-theme-primary));
+  border-radius: var(--radius-lg, 12px);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.today-btn:hover {
+  background: rgba(var(--v-theme-primary), 0.1);
+  border-color: rgba(var(--v-theme-primary), 0.5);
+}
+
+/* Navigation */
+.calendar-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 0 4px;
+}
+
+.nav-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: rgba(var(--v-theme-on-surface), 0.06);
+  color: rgba(var(--v-theme-on-surface), 0.7);
+  border-radius: var(--radius-md, 8px);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.nav-btn:hover {
+  background: rgba(var(--v-theme-on-surface), 0.1);
+  color: rgba(var(--v-theme-on-surface), 0.9);
+}
+
+.nav-label {
+  font-family: var(--font-display, 'Manrope', sans-serif);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: rgba(var(--v-theme-on-surface), 0.8);
+}
+
+/* Week View */
+.week-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 8px;
 }
 
-.calendar-day {
+.week-day {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 12px 8px;
-  border-radius: 12px;
+  padding: 14px 8px;
+  border-radius: var(--radius-lg, 12px);
   cursor: pointer;
   transition: all 0.2s ease;
-  min-height: 80px;
+  min-height: 85px;
   position: relative;
-  border: 2px solid rgba(0, 0, 0, 0.1); /* 2px border for all days to maintain consistent size */
+  background: rgba(var(--v-theme-on-surface), 0.03);
+  border: 2px solid transparent;
   box-sizing: border-box;
 }
 
-.calendar-day:hover {
-  background-color: rgba(var(--v-theme-primary), 0.08);
+.week-day:hover {
+  background: rgba(var(--v-theme-primary), 0.1);
+  transform: translateY(-2px);
 }
 
-/* Today - Blue border with light background */
-.calendar-day--today {
-  background-color: rgba(33, 150, 243, 0.1);
-  border: 2px solid #2196F3;
-  color: #1976D2;
+/* Week Day States */
+.week-day--today {
+  background: linear-gradient(
+    135deg,
+    rgba(var(--v-theme-primary), 0.15),
+    rgba(var(--v-theme-primary), 0.08)
+  );
+  border-color: rgb(var(--v-theme-primary));
 }
 
-/* Selected - Green background with darker border */
-.calendar-day--selected {
-  background-color: rgba(76, 175, 80, 0.2);
-  border: 2px solid #4CAF50;
-  color: #2E7D32;
+.week-day--selected {
+  background: linear-gradient(
+    135deg,
+    rgba(var(--v-theme-success), 0.2),
+    rgba(var(--v-theme-success), 0.1)
+  );
+  border-color: rgb(var(--v-theme-success));
 }
 
-/* Today + Selected - Purple combination */
-.calendar-day--today.calendar-day--selected {
-  background-color: rgba(156, 39, 176, 0.2);
-  border: 2px solid #9C27B0;
-  color: #7B1FA2;
+.week-day--today.week-day--selected {
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.2), rgba(124, 58, 237, 0.1));
+  border-color: #7c3aed;
 }
 
-.calendar-day--has-plants {
-  border: 2px solid rgba(var(--v-theme-success), 0.3);
+.week-day--has-plants {
+  border-color: rgba(var(--v-theme-success), 0.4);
 }
 
-/* Override plant border when today or selected */
-.calendar-day--today.calendar-day--has-plants {
-  border: 2px solid #2196F3;
+.week-day--today.week-day--has-plants {
+  border-color: rgb(var(--v-theme-primary));
 }
 
-.calendar-day--selected.calendar-day--has-plants {
-  border: 2px solid #4CAF50;
+.week-day--selected.week-day--has-plants {
+  border-color: rgb(var(--v-theme-success));
 }
 
-.calendar-day--today.calendar-day--selected.calendar-day--has-plants {
-  border: 2px solid #9C27B0;
-}
-
-.day-name {
+.week-day-name {
   font-size: 0.75rem;
-  font-weight: 500;
-  color: rgba(var(--v-theme-on-surface), 0.6);
-  margin-bottom: 4px;
+  font-weight: 600;
+  color: rgba(var(--v-theme-on-surface), 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  margin-bottom: 6px;
 }
 
-.day-number {
-  font-size: 1.1rem;
-  font-weight: 600;
+.week-day-number {
+  font-family: var(--font-display, 'Manrope', sans-serif);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: rgba(var(--v-theme-on-surface), 0.9);
   margin-bottom: 8px;
 }
 
-.plant-indicators {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 20px;
+.week-day-badge {
+  position: absolute;
+  bottom: 8px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  background: rgb(var(--v-theme-success));
+  color: white;
+  padding: 2px 8px;
+  border-radius: 20px;
+  min-width: 20px;
+  text-align: center;
 }
 
-.plant-count-chip {
-  font-size: 0.7rem !important;
-  height: 18px !important;
-}
-
-/* Month View Styles */
-.month-calendar {
+/* Month View */
+.month-grid {
   width: 100%;
 }
 
-.month-headers {
+.month-header-row {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 1px;
+  gap: 4px;
   margin-bottom: 8px;
 }
 
-.month-header {
+.month-header-cell {
   text-align: center;
   font-size: 0.75rem;
-  font-weight: 600;
-  padding: 8px;
-  color: rgba(var(--v-theme-on-surface), 0.6);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 8px 4px;
+  color: rgba(var(--v-theme-on-surface), 0.5);
 }
 
-.month-days {
+.month-days-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 1px;
+  gap: 4px;
 }
 
 .month-day {
@@ -510,100 +605,139 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   padding: 4px;
-  border: 2px solid rgba(0, 0, 0, 0.1); /* 2px border for all days to maintain consistent size */
+  border: 2px solid transparent;
+  background: rgba(var(--v-theme-on-surface), 0.03);
+  border-radius: var(--radius-md, 8px);
   box-sizing: border-box;
   cursor: pointer;
   transition: all 0.2s ease;
   position: relative;
-  min-height: 40px;
+  min-height: 42px;
 }
 
 .month-day:hover {
-  background-color: rgba(var(--v-theme-primary), 0.08);
+  background: rgba(var(--v-theme-primary), 0.1);
+  transform: scale(1.05);
 }
 
 .month-day--today {
-  background-color: rgba(33, 150, 243, 0.1);
-  border: 2px solid #2196F3;
-  color: #1976D2;
+  background: linear-gradient(
+    135deg,
+    rgba(var(--v-theme-primary), 0.15),
+    rgba(var(--v-theme-primary), 0.08)
+  );
+  border-color: rgb(var(--v-theme-primary));
 }
 
 .month-day--selected {
-  background-color: rgba(76, 175, 80, 0.2);
-  border: 2px solid #4CAF50;
-  color: #2E7D32;
+  background: linear-gradient(
+    135deg,
+    rgba(var(--v-theme-success), 0.2),
+    rgba(var(--v-theme-success), 0.1)
+  );
+  border-color: rgb(var(--v-theme-success));
 }
 
 .month-day--today.month-day--selected {
-  background-color: rgba(156, 39, 176, 0.2);
-  border: 2px solid #9C27B0;
-  color: #7B1FA2;
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.2), rgba(124, 58, 237, 0.1));
+  border-color: #7c3aed;
 }
 
-.month-day--other-month {
-  opacity: 0.3;
+.month-day--other {
+  opacity: 0.35;
 }
 
 .month-day--has-plants {
-  border: 2px solid rgba(var(--v-theme-success), 0.3);
+  border-color: rgba(var(--v-theme-success), 0.4);
 }
 
 .month-day--today.month-day--has-plants {
-  border: 2px solid #2196F3;
+  border-color: rgb(var(--v-theme-primary));
 }
 
 .month-day--selected.month-day--has-plants {
-  border: 2px solid #4CAF50;
+  border-color: rgb(var(--v-theme-success));
 }
 
-.month-day-number {
+.month-day-num {
+  font-family: var(--font-display, 'Manrope', sans-serif);
   font-size: 0.875rem;
-  font-weight: 500;
+  font-weight: 600;
+  color: rgba(var(--v-theme-on-surface), 0.85);
 }
 
-.month-plant-indicator {
+.month-day-badge {
   position: absolute;
-  bottom: 2px;
-  right: 2px;
+  bottom: 3px;
+  right: 3px;
+  font-size: 0.5625rem;
+  font-weight: 700;
+  background: rgb(var(--v-theme-success));
+  color: white;
+  width: 16px;
+  height: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
+  border-radius: 50%;
 }
 
-.month-plant-count-chip {
-  font-size: 0.65rem !important;
-  height: 16px !important;
-  min-width: 16px !important;
-  padding: 0 4px !important;
-}
-
+/* Responsive */
 @media (max-width: 600px) {
-  .calendar-day {
-    padding: 8px 4px;
-    min-height: 70px;
+  .calendar-widget {
+    padding: 16px;
   }
-  
-  .day-number {
+
+  .calendar-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .header-controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .week-day {
+    padding: 10px 4px;
+    min-height: 75px;
+  }
+
+  .week-day-name {
+    font-size: 0.625rem;
+  }
+
+  .week-day-number {
     font-size: 1rem;
   }
-  
-  .calendar-days {
+
+  .week-grid {
     gap: 4px;
   }
-  
+
   .month-day {
-    min-height: 35px;
+    min-height: 36px;
   }
-  
-  .month-day-number {
+
+  .month-day-num {
     font-size: 0.75rem;
   }
-  
-  .month-plant-count-chip {
-    font-size: 0.6rem !important;
-    height: 14px !important;
-    min-width: 14px !important;
-    padding: 0 3px !important;
+
+  .month-day-badge {
+    width: 14px;
+    height: 14px;
+    font-size: 0.5rem;
+  }
+
+  .toggle-btn {
+    padding: 5px 10px;
+    font-size: 0.75rem;
+  }
+
+  .today-btn {
+    padding: 5px 10px;
+    font-size: 0.75rem;
   }
 }
 </style>

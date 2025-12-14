@@ -820,11 +820,36 @@ onUnmounted(() => {
 
 <style scoped>
 .add-plant-dialog {
-  border-radius: 12px !important;
+  border-radius: var(--radius-xl, 16px) !important;
+  overflow: hidden;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+}
+
+/* Add gradient accent bar */
+.add-plant-dialog::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  background: linear-gradient(90deg, rgb(var(--v-theme-primary)), rgb(var(--v-theme-success)));
+  z-index: 10;
+}
+
+.add-plant-dialog :deep(.v-card-title) {
+  font-family: var(--font-display, 'Manrope', sans-serif);
+  font-weight: 700;
+  padding-top: 24px !important;
 }
 
 .plant-stepper :deep(.v-stepper-header) {
   box-shadow: none;
+}
+
+.step-header {
+  background: rgba(var(--v-theme-on-surface), 0.03);
+  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.06);
 }
 
 .photo-upload-container {
@@ -832,23 +857,32 @@ onUnmounted(() => {
 }
 
 .photo-upload-area {
-  border: 2px dashed #e0e0e0;
-  border-radius: 12px;
+  border: 2px dashed rgba(var(--v-theme-primary), 0.3);
+  border-radius: var(--radius-xl, 16px);
   padding: 48px 24px;
   text-align: center;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
   min-height: 200px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background-color: rgba(0, 0, 0, 0.02);
+  background: linear-gradient(
+    135deg,
+    rgba(var(--v-theme-primary), 0.04),
+    rgba(var(--v-theme-success), 0.04)
+  );
 }
 
 .photo-upload-area:hover {
-  border-color: #4caf50;
-  background-color: rgba(76, 175, 80, 0.05);
+  border-color: rgb(var(--v-theme-primary));
+  background: linear-gradient(
+    135deg,
+    rgba(var(--v-theme-primary), 0.08),
+    rgba(var(--v-theme-success), 0.08)
+  );
+  transform: translateY(-2px);
 }
 
 .photo-preview {
@@ -857,27 +891,36 @@ onUnmounted(() => {
   width: 100%;
 }
 
+.photo-preview :deep(.v-img) {
+  border-radius: var(--radius-xl, 16px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+}
+
 .photo-remove-btn {
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: 12px;
+  right: 12px;
   z-index: 2;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
 }
 
 .photo-success-chip {
   position: absolute;
-  bottom: 8px;
-  left: 8px;
+  bottom: 12px;
+  left: 12px;
   z-index: 2;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .plant-details-form .v-field {
-  border-radius: 8px;
+  border-radius: var(--radius-lg, 12px);
 }
 
 .care-section {
   border-left: 3px solid rgba(var(--v-theme-primary), 0.3);
   padding-left: 16px;
+  margin-left: 4px;
 }
 
 .flex-1 {
@@ -913,6 +956,7 @@ onUnmounted(() => {
 
 .capture-button {
   border: 4px solid white !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
 }
 
 /* AI Analysis Styles */
@@ -929,12 +973,12 @@ onUnmounted(() => {
   bottom: 0;
   background: linear-gradient(
     135deg,
-    rgba(103, 58, 183, 0.1) 0%,
-    rgba(156, 39, 176, 0.1) 50%,
-    rgba(103, 58, 183, 0.1) 100%
+    rgba(var(--v-theme-primary), 0.1) 0%,
+    rgba(var(--v-theme-success), 0.1) 50%,
+    rgba(var(--v-theme-primary), 0.1) 100%
   );
   animation: ai-pulse 2s ease-in-out infinite;
-  border-radius: 12px;
+  border-radius: var(--radius-xl, 16px);
   pointer-events: none;
 }
 
@@ -948,12 +992,22 @@ onUnmounted(() => {
   }
 }
 
+/* Card Actions */
+.add-plant-dialog :deep(.v-card-actions) {
+  background: rgba(var(--v-theme-on-surface), 0.02);
+  border-top: 1px solid rgba(var(--v-theme-on-surface), 0.06);
+}
+
 @media (max-width: 600px) {
   .add-plant-dialog {
     margin: 0;
     height: 100%;
     max-height: 100vh;
     border-radius: 0 !important;
+  }
+
+  .add-plant-dialog::before {
+    display: none;
   }
 }
 </style>

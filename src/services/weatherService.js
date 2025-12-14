@@ -31,11 +31,11 @@ export async function getCurrentWeather(lat, lon) {
     )
 
     if (response.status === 401) {
-      throw new Error('API key not activated yet. Please wait 10-15 minutes after registration.')
+      throw new Error('Weather data temporarily unavailable. Using default settings.')
     }
 
     if (!response.ok) {
-      throw new Error(`Weather API error: ${response.statusText}`)
+      throw new Error(`Weather data unavailable. Using default settings.`)
     }
 
     const data = await response.json()

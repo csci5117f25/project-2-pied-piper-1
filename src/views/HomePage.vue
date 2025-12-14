@@ -1,9 +1,33 @@
 <template>
-  <v-container fluid class="home-container">
-    <!-- Header with Weather and Profile -->
-    <v-row class="mb-4">
-      <v-col cols="12" md="8">
-        <!-- Enhanced Weather Widget -->
+  <div class="home-page">
+    <!-- Hero Section with Greeting -->
+    <div class="hero-section">
+      <div class="hero-content">
+        <div class="greeting">
+          <span class="greeting-emoji">{{ getGreetingEmoji() }}</span>
+          <div>
+            <h1 class="greeting-text">{{ getGreeting() }}</h1>
+            <p class="greeting-subtitle">{{ user?.displayName || 'Plant Lover' }}</p>
+          </div>
+        </div>
+        <v-btn
+          @click="$router.push('/app/settings')"
+          icon
+          variant="tonal"
+          size="44"
+          class="profile-btn"
+        >
+          <v-avatar size="36">
+            <img v-if="user?.photoURL" :src="user.photoURL" :alt="user.displayName" />
+            <v-icon v-else color="primary">mdi-account</v-icon>
+          </v-avatar>
+        </v-btn>
+      </div>
+    </div>
+
+    <v-container fluid class="home-container">
+      <!-- Weather Widget -->
+      <div class="section-spacing">
         <WeatherWidget
           :weather-data="weatherData"
           :recommendation="wateringRecommendation"
@@ -11,99 +35,104 @@
           :error="weatherError"
           @retry="fetchWeatherData"
         />
-      </v-col>
+      </div>
 
-      <v-col cols="12" md="4" class="text-right">
-        <!-- User Profile Icon -->
-        <v-btn @click="$router.push('/app/settings')" icon size="large" variant="text">
-          <v-avatar size="40">
-            <img v-if="user?.photoURL" :src="user.photoURL" :alt="user.displayName" />
-            <v-icon v-else>mdi-account-circle</v-icon>
-          </v-avatar>
-        </v-btn>
-      </v-col>
-    </v-row>
-
-    <!-- Enhanced Calendar Widget -->
-    <v-row class="mb-4">
-      <v-col cols="12">
+      <!-- Calendar Widget -->
+      <div class="section-spacing">
         <CalendarWidget :plants="plants" @day-selected="onDaySelected" />
-      </v-col>
-    </v-row>
+      </div>
 
-    <!-- Plants to Water -->
-    <v-row>
-      <v-col cols="12">
-        <v-card elevation="2">
-          <v-card-title class="d-flex align-center">
-            <v-icon class="mr-2" color="primary">mdi-sprout</v-icon>
-            {{ sectionTitle }}
-            <v-spacer></v-spacer>
-            <v-chip :color="plantsToday.length > 0 ? 'primary' : 'grey'" size="small">
-              {{ plantsToday.length }}
-            </v-chip>
-          </v-card-title>
+      <!-- Plants to Water Section -->
+      <div class="section-spacing">
+        <div class="section-header">
+          <div class="section-title">
+            <v-icon class="section-icon" color="primary">mdi-water-outline</v-icon>
+            <span>{{ sectionTitle }}</span>
+          </div>
+          <v-chip
+            :color="plantsToday.length > 0 ? 'primary' : 'default'"
+            size="small"
+            variant="tonal"
+          >
+            {{ plantsToday.length }} {{ plantsToday.length === 1 ? 'plant' : 'plants' }}
+          </v-chip>
+        </div>
 
-          <v-card-text v-if="plantsToday.length === 0" class="text-center pa-8">
-            <v-icon size="64" color="grey-lighten-2" class="mb-4"> mdi-check-circle </v-icon>
-            <div class="text-h6 text-medium-emphasis mb-2">All caught up! 🎉</div>
-            <div class="text-body-2 text-medium-emphasis">
-              {{ selectedDateText }}
-            </div>
-          </v-card-text>
+        <!-- Empty State -->
+        <div v-if="plantsToday.length === 0" class="empty-state">
+          <div class="empty-icon">🎉</div>
+          <h3 class="empty-title">All caught up!</h3>
+          <p class="empty-subtitle">{{ selectedDateText }}</p>
+        </div>
 
-          <v-card-text v-else class="pa-0">
-            <div v-for="plant in plantsToday" :key="plant.id" class="plant-card-item">
-              <div class="d-flex align-center pa-4">
-                <!-- Plant Image -->
-                <v-avatar size="48" class="mr-4">
-                  <img v-if="plant.photoURL" :src="plant.photoURL" :alt="plant.nickname" />
-                  <v-icon v-else color="success">mdi-sprout</v-icon>
-                </v-avatar>
-
-                <!-- Plant Info -->
-                <div class="flex-grow-1">
-                  <div class="text-subtitle-1 font-weight-medium">
-                    {{ plant.nickname }}
-                  </div>
-                  <div class="text-body-2 text-medium-emphasis">
-                    {{ plant.plantType }} • {{ plant.location }}
-                  </div>
-                </div>
-
-                <!-- Action Buttons -->
-                <div class="d-flex gap-2">
-                  <v-btn
-                    @click="completePlantWatering(plant)"
-                    icon="mdi-check"
-                    size="small"
-                    color="success"
-                    variant="tonal"
-                    :disabled="!isSelectedDateToday"
-                  />
-                  <v-btn
-                    @click="skipPlantWatering(plant)"
-                    icon="mdi-close"
-                    size="small"
-                    color="warning"
-                    variant="tonal"
-                    :disabled="!isSelectedDateToday"
-                  />
+        <!-- Plant Cards -->
+        <div v-else class="plants-grid">
+          <div
+            v-for="plant in plantsToday"
+            :key="plant.id"
+            class="plant-card"
+            @click="$router.push(`/app/plants/${plant.id}`)"
+          >
+            <div class="plant-card-inner">
+              <!-- Plant Image -->
+              <div class="plant-image-wrapper">
+                <img
+                  v-if="plant.photoURL"
+                  :src="plant.photoURL"
+                  :alt="plant.nickname"
+                  class="plant-image"
+                />
+                <div v-else class="plant-placeholder">
+                  <v-icon size="32" color="primary">mdi-leaf</v-icon>
                 </div>
               </div>
 
-              <v-divider v-if="plantsToday.indexOf(plant) < plantsToday.length - 1"></v-divider>
+              <!-- Plant Info -->
+              <div class="plant-info">
+                <h4 class="plant-name">{{ plant.nickname }}</h4>
+                <p class="plant-type">{{ plant.plantType }}</p>
+                <div class="plant-location">
+                  <v-icon size="12">mdi-map-marker-outline</v-icon>
+                  {{ plant.location }}
+                </div>
+              </div>
+
+              <!-- Action Buttons -->
+              <div class="plant-actions" @click.stop>
+                <v-btn
+                  @click="completePlantWatering(plant)"
+                  icon
+                  size="36"
+                  color="success"
+                  variant="flat"
+                  :disabled="!isSelectedDateToday"
+                  class="action-btn"
+                >
+                  <v-icon size="18">mdi-check</v-icon>
+                </v-btn>
+                <v-btn
+                  @click="skipPlantWatering(plant)"
+                  icon
+                  size="36"
+                  color="warning"
+                  variant="tonal"
+                  :disabled="!isSelectedDateToday"
+                  class="action-btn"
+                >
+                  <v-icon size="18">mdi-clock-outline</v-icon>
+                </v-btn>
+              </div>
             </div>
-          </v-card-text>
-        </v-card>
-      </v-col>
-    </v-row>
+          </div>
+        </div>
+      </div>
+    </v-container>
 
     <!-- Success Snackbar -->
     <v-snackbar v-model="showSuccess" color="success" :timeout="3000" location="top">
       {{ successMessage }}
     </v-snackbar>
-  </v-container>
+  </div>
 </template>
 
 <script setup>
@@ -121,6 +150,21 @@ import {
 } from '@/services/notificationService'
 import WeatherWidget from '@/components/WeatherWidget.vue'
 import CalendarWidget from '@/components/CalendarWidget.vue'
+
+// Helper functions for greeting
+const getGreeting = () => {
+  const hour = new Date().getHours()
+  if (hour < 12) return 'Good morning'
+  if (hour < 17) return 'Good afternoon'
+  return 'Good evening'
+}
+
+const getGreetingEmoji = () => {
+  const hour = new Date().getHours()
+  if (hour < 12) return '🌅'
+  if (hour < 17) return '☀️'
+  return '🌙'
+}
 
 // Reactive data
 const user = ref(null)
@@ -279,7 +323,12 @@ const fetchWeatherData = async () => {
     wateringRecommendation.value = result.recommendation
   } catch (error) {
     console.error('Error fetching weather:', error)
-    weatherError.value = error.message || 'Unable to load weather data'
+    // Show appropriate error message based on the issue
+    if (error.message?.includes('Geolocation') || error.message?.includes('permission')) {
+      weatherError.value = 'Enable location permission in your browser'
+    } else {
+      weatherError.value = 'Weather data temporarily unavailable'
+    }
   } finally {
     weatherLoading.value = false
   }
@@ -496,27 +545,237 @@ const skipPlantWatering = async (plant) => {
 </script>
 
 <style scoped>
+.home-page {
+  min-height: 100vh;
+  background: rgb(var(--v-theme-background));
+  padding-bottom: 100px;
+}
+
+/* Hero Section */
+.hero-section {
+  background: linear-gradient(
+    135deg,
+    rgb(var(--v-theme-primary)) 0%,
+    rgba(var(--v-theme-primary), 0.85) 100%
+  );
+  padding: 24px 20px 32px;
+  margin-bottom: -16px;
+  border-radius: 0 0 24px 24px;
+}
+
+.hero-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.greeting {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.greeting-emoji {
+  font-size: 2rem;
+}
+
+.greeting-text {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: white;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.greeting-subtitle {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.85);
+  margin: 4px 0 0;
+}
+
+.profile-btn {
+  background: rgba(255, 255, 255, 0.15) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Container */
 .home-container {
-  padding-top: 16px;
-  padding-bottom: 100px; /* Account for bottom navigation */
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 24px 16px;
 }
 
-.plant-card-item {
-  transition: background-color 0.2s ease;
+.section-spacing {
+  margin-bottom: 24px;
 }
 
-.plant-card-item:hover {
-  background-color: rgba(var(--v-theme-surface), 0.5);
+/* Section Header */
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
 }
 
-.gap-2 {
+.section-title {
+  display: flex;
+  align-items: center;
   gap: 8px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.125rem;
+  color: rgb(var(--v-theme-on-surface));
 }
 
+.section-icon {
+  opacity: 0.8;
+}
+
+/* Empty State */
+.empty-state {
+  background: rgb(var(--v-theme-surface));
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.06);
+  border-radius: 20px;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.empty-icon {
+  font-size: 3rem;
+  margin-bottom: 16px;
+}
+
+.empty-title {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: rgb(var(--v-theme-on-surface));
+  margin: 0 0 8px;
+}
+
+.empty-subtitle {
+  font-size: 0.9rem;
+  color: rgba(var(--v-theme-on-surface), 0.6);
+  margin: 0;
+}
+
+/* Plants Grid */
+.plants-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Plant Card */
+.plant-card {
+  background: rgb(var(--v-theme-surface));
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.06);
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.plant-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  border-color: rgba(var(--v-theme-primary), 0.2);
+}
+
+.plant-card-inner {
+  display: flex;
+  align-items: center;
+  padding: 16px;
+  gap: 16px;
+}
+
+/* Plant Image */
+.plant-image-wrapper {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.plant-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.plant-placeholder {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    135deg,
+    rgba(var(--v-theme-primary), 0.1) 0%,
+    rgba(var(--v-theme-primary), 0.05) 100%
+  );
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Plant Info */
+.plant-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.plant-name {
+  font-weight: 600;
+  font-size: 1rem;
+  color: rgb(var(--v-theme-on-surface));
+  margin: 0 0 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.plant-type {
+  font-size: 0.85rem;
+  color: rgba(var(--v-theme-on-surface), 0.6);
+  margin: 0 0 4px;
+}
+
+.plant-location {
+  font-size: 0.75rem;
+  color: rgba(var(--v-theme-on-surface), 0.5);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Plant Actions */
+.plant-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.action-btn {
+  box-shadow: none !important;
+}
+
+/* Responsive */
 @media (max-width: 600px) {
+  .hero-section {
+    padding: 20px 16px 28px;
+  }
+
+  .greeting-emoji {
+    font-size: 1.5rem;
+  }
+
+  .greeting-text {
+    font-size: 1.25rem;
+  }
+
   .home-container {
-    padding-left: 8px;
-    padding-right: 8px;
+    padding: 20px 12px;
   }
 }
 </style>

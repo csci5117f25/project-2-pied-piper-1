@@ -1,83 +1,64 @@
 <template>
-  <v-card class="weather-widget" elevation="3">
+  <div class="weather-widget">
     <!-- Loading State -->
-    <v-card-text v-if="loading" class="pa-6 text-center">
-      <v-progress-circular indeterminate color="primary" class="mb-2" />
-      <div class="text-body-2 text-medium-emphasis">Loading weather...</div>
-    </v-card-text>
+    <div v-if="loading" class="weather-loading">
+      <div class="skeleton skeleton-temp"></div>
+      <div class="skeleton skeleton-desc"></div>
+    </div>
 
     <!-- Error State -->
-    <v-card-text v-else-if="error" class="pa-4">
-      <v-alert type="warning" variant="tonal" density="compact" class="mb-0">
-        <div class="d-flex align-center justify-space-between">
-          <div>
-            <div class="text-body-2 font-weight-medium">Weather unavailable</div>
-            <div class="text-caption">{{ error }}</div>
-          </div>
-          <v-btn @click="$emit('retry')" size="small" variant="text" icon="mdi-refresh" />
-        </div>
-      </v-alert>
-    </v-card-text>
+    <div v-else-if="error" class="weather-error">
+      <v-icon size="24" color="warning" class="mr-2">mdi-weather-cloudy-alert</v-icon>
+      <span>Weather unavailable</span>
+      <v-btn
+        @click="$emit('retry')"
+        variant="text"
+        size="small"
+        icon="mdi-refresh"
+        class="ml-auto"
+      />
+    </div>
 
     <!-- Weather Data -->
-    <v-card-text v-else class="pa-4">
-      <div class="d-flex align-center justify-space-between">
-        <!-- Weather Info -->
-        <div class="d-flex align-center">
-          <div class="weather-icon mr-3">
-            <v-icon :icon="weatherIcon" :color="iconColor" size="48"></v-icon>
-          </div>
-          <div>
-            <div class="text-h5 font-weight-bold">{{ weatherData?.temperature || '--' }}°C</div>
-            <div class="text-subtitle-1 text-medium-emphasis text-capitalize">
-              {{ weatherData?.description || weatherData?.condition || 'N/A' }}
-            </div>
-            <div class="text-body-2 text-medium-emphasis d-flex align-center mt-1">
-              <v-icon size="14" class="mr-1">mdi-map-marker</v-icon>
-              {{ weatherData?.location || 'Unknown' }}
-            </div>
-          </div>
+    <div v-else class="weather-content">
+      <!-- Main Weather -->
+      <div class="weather-main">
+        <div class="weather-icon-wrapper">
+          <v-icon :icon="weatherIcon" :color="iconColor" size="40"></v-icon>
         </div>
-
-        <!-- Additional Info -->
-        <div class="text-right hidden-xs">
-          <div class="text-body-2 text-medium-emphasis mb-1">
-            Humidity: {{ weatherData?.humidity || '--' }}%
+        <div class="weather-info">
+          <div class="weather-temp">{{ weatherData?.temperature || '--' }}°</div>
+          <div class="weather-desc">
+            {{ weatherData?.description || weatherData?.condition || 'N/A' }}
           </div>
-          <div class="text-body-2 text-medium-emphasis">
-            Wind: {{ weatherData?.windSpeed || '--' }} km/h
-          </div>
-          <v-tooltip v-if="recommendation" :text="recommendation.reason" location="bottom">
-            <template #activator="{ props: tooltipProps }">
-              <v-chip
-                v-bind="tooltipProps"
-                :color="recommendation.color"
-                :prepend-icon="recommendation.icon"
-                size="small"
-                class="mt-2"
-                variant="tonal"
-              >
-                {{ recommendation.message }}
-              </v-chip>
-            </template>
-          </v-tooltip>
         </div>
       </div>
 
-      <!-- Mobile Recommendation -->
-      <div v-if="recommendation" class="mt-3 hidden-sm-and-up">
-        <v-chip
-          :color="recommendation.color"
-          :prepend-icon="recommendation.icon"
-          size="small"
-          variant="tonal"
-          block
-        >
-          {{ recommendation.message }}
-        </v-chip>
+      <!-- Stats -->
+      <div class="weather-stats">
+        <div class="stat">
+          <v-icon size="16" color="primary">mdi-water-percent</v-icon>
+          <span>{{ weatherData?.humidity || '--' }}%</span>
+        </div>
+        <div class="stat">
+          <v-icon size="16" color="primary">mdi-weather-windy</v-icon>
+          <span>{{ weatherData?.windSpeed || '--' }} km/h</span>
+        </div>
       </div>
-    </v-card-text>
-  </v-card>
+
+      <!-- Recommendation Chip -->
+      <v-chip
+        v-if="recommendation"
+        :color="recommendation.color"
+        :prepend-icon="recommendation.icon"
+        size="small"
+        variant="tonal"
+        class="recommendation-chip"
+      >
+        {{ recommendation.message }}
+      </v-chip>
+    </div>
+  </div>
 </template>
 
 <script setup>
@@ -122,21 +103,132 @@ const iconColor = computed(() => {
 
 <style scoped>
 .weather-widget {
-  border-radius: 16px !important;
-  background: linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(139, 195, 74, 0.1) 100%);
-  border: 1px solid rgba(76, 175, 80, 0.2);
+  background: rgb(var(--v-theme-surface));
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.06);
+  border-radius: 20px;
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
 }
 
-.weather-icon {
-  background: rgba(255, 255, 255, 0.8);
-  border-radius: 50%;
-  padding: 8px;
-  backdrop-filter: blur(10px);
+.weather-widget::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 120px;
+  height: 120px;
+  background: radial-gradient(circle, rgba(var(--v-theme-primary), 0.08) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* Loading State */
+.weather-loading {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.skeleton-temp {
+  width: 80px;
+  height: 32px;
+}
+
+.skeleton-desc {
+  width: 120px;
+  height: 16px;
+}
+
+/* Error State */
+.weather-error {
+  display: flex;
+  align-items: center;
+  color: rgba(var(--v-theme-on-surface), 0.7);
+  font-size: 0.9rem;
+}
+
+/* Weather Content */
+.weather-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.weather-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 150px;
+}
+
+.weather-icon-wrapper {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: rgba(var(--v-theme-primary), 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.weather-info {
+  flex: 1;
+}
+
+.weather-temp {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 700;
+  color: rgb(var(--v-theme-on-surface));
+  line-height: 1;
+}
+
+.weather-desc {
+  font-size: 0.85rem;
+  color: rgba(var(--v-theme-on-surface), 0.6);
+  text-transform: capitalize;
+  margin-top: 4px;
+}
+
+/* Stats */
+.weather-stats {
+  display: flex;
+  gap: 16px;
+}
+
+.stat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: rgba(var(--v-theme-on-surface), 0.7);
+  background: rgba(var(--v-theme-primary), 0.06);
+  padding: 6px 12px;
+  border-radius: 20px;
+}
+
+/* Recommendation */
+.recommendation-chip {
+  margin-left: auto;
 }
 
 @media (max-width: 600px) {
-  .weather-widget .text-right {
-    display: none;
+  .weather-content {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .weather-stats {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .recommendation-chip {
+    margin-left: 0;
+    margin-top: 8px;
   }
 }
 </style>
