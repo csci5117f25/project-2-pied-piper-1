@@ -107,12 +107,18 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { onAuthStateChanged } from 'firebase/auth'
 import { collection, query, where, onSnapshot, doc, updateDoc, getDoc } from 'firebase/firestore'
 import { auth, db } from '@/firebase'
 import { handlePlantWatered, handleAllPlantsHealthy } from '@/utils/achievements'
 import { getWeatherForCurrentLocation } from '@/services/weatherService'
+import {
+  scheduleLocalNotifications,
+  getPlantsNeedingWaterToday,
+  getNotificationContent,
+  calculateNextNotificationTime,
+} from '@/services/notificationService'
 import WeatherWidget from '@/components/WeatherWidget.vue'
 import CalendarWidget from '@/components/CalendarWidget.vue'
 
@@ -278,6 +284,154 @@ const fetchWeatherData = async () => {
     weatherLoading.value = false
   }
 }
+
+// Check and send daily plant care notifications
+const checkAndSendNotifications = async (userId, plantsToCheck) => {
+  try {
+    // Check if user has notifications enabled
+    const userDoc = await getDoc(doc(db, 'users', userId))
+    const userData = userDoc.data()
+
+    if (!userData?.notificationsEnabled) {
+      console.log('Notifications disabled for user')
+      return
+    }
+
+    // Check localStorage to see if we've already notified today
+    const today = new Date().toDateString()
+    const lastNotificationDate = localStorage.getItem('lastNotificationDate')
+
+    if (lastNotificationDate === today) {
+      console.log('Already sent notifications today')
+      return
+    }
+
+    // Get notification preferences
+    const settings = userData.notificationSettings || {}
+    const wateringEnabled = settings.wateringReminders !== false
+    const fertilizerEnabled = settings.fertilizerReminders !== false
+    const pruningEnabled = settings.pruningReminders !== false
+
+    // Check for plants needing care
+    let notificationsSent = 0
+
+    // Watering notifications
+    if (wateringEnabled && plantsToCheck.length > 0) {
+      const plantsNeedingWater = getPlantsNeedingWaterToday(plantsToCheck)
+
+      if (plantsNeedingWater.length > 0) {
+        // Send a combined notification for all plants or individual ones
+        if (plantsNeedingWater.length === 1) {
+          const plant = plantsNeedingWater[0]
+          const content = getNotificationContent(plant, 'watering')
+          new Notification(content.title, {
+            body: content.body,
+            icon: content.icon,
+            badge: '/icon-192x192.png',
+            tag: `water-${plant.id}`,
+            data: { plantId: plant.id, type: 'watering' },
+          })
+          notificationsSent++
+        } else {
+          // Combined notification for multiple plants
+          const plantNames = plantsNeedingWater
+            .slice(0, 3)
+            .map((p) => p.nickname)
+            .join(', ')
+          const remaining = plantsNeedingWater.length - 3
+          const body =
+            remaining > 0
+              ? `${plantNames} and ${remaining} more need water today! 💧`
+              : `${plantNames} need water today! 💧`
+
+          new Notification('🌱 Plant Care Reminder', {
+            body,
+            icon: '/icon-192x192.png',
+            badge: '/icon-192x192.png',
+            tag: 'daily-watering',
+          })
+          notificationsSent++
+        }
+      }
+    }
+
+    // Fertilizer notifications (check monthly)
+    if (fertilizerEnabled) {
+      const plantsNeedingFertilizer = plantsToCheck.filter((plant) => {
+        if (!plant.needsFertilizer) return false
+        const nextFertilizer = calculateNextNotificationTime(plant, 'fertilizer')
+        if (!nextFertilizer) return false
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        const fertilizeDate = new Date(nextFertilizer)
+        fertilizeDate.setHours(0, 0, 0, 0)
+        return fertilizeDate <= today
+      })
+
+      if (plantsNeedingFertilizer.length > 0) {
+        const plant = plantsNeedingFertilizer[0]
+        const content = getNotificationContent(plant, 'fertilizer')
+        new Notification(content.title, {
+          body: content.body,
+          icon: content.icon,
+          badge: '/icon-192x192.png',
+          tag: `fertilizer-${plant.id}`,
+          data: { plantId: plant.id, type: 'fertilizer' },
+        })
+        notificationsSent++
+      }
+    }
+
+    // Pruning notifications (check quarterly)
+    if (pruningEnabled) {
+      const plantsNeedingPruning = plantsToCheck.filter((plant) => {
+        if (!plant.needsPruning) return false
+        const nextPruning = calculateNextNotificationTime(plant, 'pruning')
+        if (!nextPruning) return false
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        const pruneDate = new Date(nextPruning)
+        pruneDate.setHours(0, 0, 0, 0)
+        return pruneDate <= today
+      })
+
+      if (plantsNeedingPruning.length > 0) {
+        const plant = plantsNeedingPruning[0]
+        const content = getNotificationContent(plant, 'pruning')
+        new Notification(content.title, {
+          body: content.body,
+          icon: content.icon,
+          badge: '/icon-192x192.png',
+          tag: `pruning-${plant.id}`,
+          data: { plantId: plant.id, type: 'pruning' },
+        })
+        notificationsSent++
+      }
+    }
+
+    // Mark that we've sent notifications today
+    if (notificationsSent > 0) {
+      localStorage.setItem('lastNotificationDate', today)
+      console.log(`Sent ${notificationsSent} notification(s)`)
+    }
+  } catch (error) {
+    console.error('Error checking/sending notifications:', error)
+  }
+}
+
+// Watch plants array and trigger notification check
+watch(
+  plants,
+  async (newPlants) => {
+    if (newPlants.length > 0 && user.value) {
+      // Small delay to ensure everything is loaded
+      setTimeout(() => {
+        checkAndSendNotifications(user.value.uid, newPlants)
+      }, 1000)
+    }
+  },
+  { deep: true },
+)
 
 // Listen for user and plants
 onMounted(() => {

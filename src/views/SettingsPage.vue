@@ -80,6 +80,61 @@
                 </template>
               </v-list-item>
 
+              <!-- Notification Detail Settings (shown when enabled) -->
+              <template v-if="settings.notifications">
+                <v-list-item class="pl-12">
+                  <v-list-item-title class="text-body-2">Watering Reminders 💧</v-list-item-title>
+                  <template #append>
+                    <v-switch
+                      v-model="notificationDetails.watering"
+                      @update:model-value="saveNotificationDetails"
+                      color="primary"
+                      hide-details
+                      density="compact"
+                    />
+                  </template>
+                </v-list-item>
+
+                <v-list-item class="pl-12">
+                  <v-list-item-title class="text-body-2">Fertilizer Reminders 🌱</v-list-item-title>
+                  <template #append>
+                    <v-switch
+                      v-model="notificationDetails.fertilizer"
+                      @update:model-value="saveNotificationDetails"
+                      color="primary"
+                      hide-details
+                      density="compact"
+                    />
+                  </template>
+                </v-list-item>
+
+                <v-list-item class="pl-12">
+                  <v-list-item-title class="text-body-2">Pruning Reminders ✂️</v-list-item-title>
+                  <template #append>
+                    <v-switch
+                      v-model="notificationDetails.pruning"
+                      @update:model-value="saveNotificationDetails"
+                      color="primary"
+                      hide-details
+                      density="compact"
+                    />
+                  </template>
+                </v-list-item>
+
+                <v-list-item class="pl-12">
+                  <v-btn
+                    variant="outlined"
+                    color="primary"
+                    size="small"
+                    prepend-icon="mdi-bell-ring"
+                    @click="sendTestNotificationHandler"
+                    :loading="testingNotification"
+                  >
+                    Send Test Notification
+                  </v-btn>
+                </v-list-item>
+              </template>
+
               <v-divider />
 
               <!-- Location Services -->
@@ -351,7 +406,23 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTheme } from 'vuetify'
 import { onAuthStateChanged, signOut, updateProfile, deleteUser } from 'firebase/auth'
-import { auth } from '@/firebase'
+import {
+  doc,
+  updateDoc,
+  getDoc,
+  collection,
+  query,
+  where,
+  getDocs,
+  limit,
+} from 'firebase/firestore'
+import { auth, db } from '@/firebase'
+import {
+  requestPermissionAndToken,
+  sendTestNotification,
+  updateNotificationSettings as updateNotificationSettingsFirestore,
+  getNotificationStatus,
+} from '@/services/notificationService'
 
 const router = useRouter()
 const theme = useTheme()
@@ -365,6 +436,7 @@ const showSuccess = ref(false)
 const successMessage = ref('')
 const deleteConfirmation = ref('')
 const selectedTime = ref('9:00')
+const testingNotification = ref(false)
 
 // Settings
 const settings = ref({
@@ -375,6 +447,13 @@ const settings = ref({
   temperatureUnit: 'fahrenheit',
 })
 
+// Notification detail settings
+const notificationDetails = ref({
+  watering: true,
+  fertilizer: true,
+  pruning: true,
+})
+
 // Edit form
 const editForm = ref({
   displayName: '',
@@ -383,11 +462,88 @@ const editForm = ref({
 
 // Settings handlers
 const updateNotificationSettings = async (enabled) => {
-  if (enabled && 'Notification' in window) {
-    await Notification.requestPermission()
+  if (enabled && user.value) {
+    try {
+      // Request FCM permission and token
+      const token = await requestPermissionAndToken(user.value.uid)
+      if (token) {
+        showSuccess.value = true
+        successMessage.value = 'Notifications enabled! 🔔'
+      } else {
+        // Fallback to basic notification permission
+        if ('Notification' in window) {
+          await Notification.requestPermission()
+        }
+        showSuccess.value = true
+        successMessage.value = 'Notifications enabled'
+      }
+    } catch (error) {
+      console.error('Error enabling notifications:', error)
+      showSuccess.value = true
+      successMessage.value = 'Notifications enabled (basic mode)'
+    }
+  } else {
+    // Disable notifications
+    if (user.value) {
+      await updateNotificationSettingsFirestore(user.value.uid, {
+        enabled: false,
+        ...notificationDetails.value,
+      })
+    }
+    showSuccess.value = true
+    successMessage.value = 'Notifications disabled'
   }
-  showSuccess.value = true
-  successMessage.value = `Notifications ${enabled ? 'enabled' : 'disabled'}`
+}
+
+// Save notification detail preferences
+const saveNotificationDetails = async () => {
+  if (user.value) {
+    await updateNotificationSettingsFirestore(user.value.uid, {
+      enabled: settings.value.notifications,
+      wateringReminders: notificationDetails.value.watering,
+      fertilizerReminders: notificationDetails.value.fertilizer,
+      pruningReminders: notificationDetails.value.pruning,
+    })
+  }
+}
+
+// Send test notification
+const sendTestNotificationHandler = async () => {
+  testingNotification.value = true
+  try {
+    // Get user's first plant for testing
+    const plantsQuery = query(
+      collection(db, 'plants'),
+      where('userId', '==', user.value.uid),
+      limit(1),
+    )
+    const snapshot = await getDocs(plantsQuery)
+
+    if (!snapshot.empty) {
+      const plant = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() }
+      const success = await sendTestNotification(plant, 'watering')
+      if (success) {
+        showSuccess.value = true
+        successMessage.value = 'Test notification sent! 🌱'
+      } else {
+        showSuccess.value = true
+        successMessage.value = 'Please allow notifications first'
+      }
+    } else {
+      // No plants, use a sample
+      const success = await sendTestNotification(null, 'watering')
+      if (success) {
+        showSuccess.value = true
+        successMessage.value = 'Test notification sent! 🌱'
+      }
+    }
+  } catch (error) {
+    console.error('Error sending test notification:', error)
+    showSuccess.value = true
+    successMessage.value = 'Error sending test notification'
+  } finally {
+    testingNotification.value = false
+  }
 }
 
 const updateLocationSettings = async (enabled) => {
@@ -404,8 +560,6 @@ const updateLocationSettings = async (enabled) => {
 
       // Save location preference to Firestore
       if (user.value) {
-        const { doc, updateDoc } = await import('firebase/firestore')
-        const { db } = await import('@/firebase')
         const userRef = doc(db, 'users', user.value.uid)
         await updateDoc(userRef, {
           locationEnabled: true,
@@ -422,8 +576,6 @@ const updateLocationSettings = async (enabled) => {
     } else {
       // Save disabled preference
       if (user.value) {
-        const { doc, updateDoc } = await import('firebase/firestore')
-        const { db } = await import('@/firebase')
         const userRef = doc(db, 'users', user.value.uid)
         await updateDoc(userRef, { locationEnabled: false })
       }
@@ -516,12 +668,27 @@ const formatDate = (dateString) => {
 
 // Initialize
 onMounted(() => {
-  onAuthStateChanged(auth, (currentUser) => {
+  onAuthStateChanged(auth, async (currentUser) => {
     if (currentUser) {
       user.value = currentUser
       editForm.value = {
         displayName: currentUser.displayName || '',
         email: currentUser.email || '',
+      }
+
+      // Load notification settings from Firestore
+      try {
+        const status = await getNotificationStatus(currentUser.uid)
+        settings.value.notifications = status.enabled
+        if (status.settings) {
+          notificationDetails.value = {
+            watering: status.settings.wateringReminders ?? true,
+            fertilizer: status.settings.fertilizerReminders ?? true,
+            pruning: status.settings.pruningReminders ?? true,
+          }
+        }
+      } catch (error) {
+        console.error('Error loading notification settings:', error)
       }
     }
   })

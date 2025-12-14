@@ -19,10 +19,12 @@
     "@google/genai": "^1.33.0",
     "@mdi/font": "^7.4.47",
     "firebase": "^12.6.0",
+    "vite-plugin-pwa": "^1.2.0",
     "vue": "^3.5.22",
     "vue-router": "^4.6.3",
     "vuefire": "^3.2.2",
-    "vuetify": "^3.10.11"
+    "vuetify": "^3.10.11",
+    "workbox-window": "^7.4.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.37.0",
