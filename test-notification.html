@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Test Plant Notifications</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        max-width: 600px;
+        margin: 50px auto;
+        padding: 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+      }
+      .container {
+        background: white;
+        border-radius: 20px;
+        padding: 40px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      }
+      h1 {
+        color: #4caf50;
+        margin-bottom: 10px;
+      }
+      .subtitle {
+        color: #666;
+        margin-bottom: 30px;
+      }
+      button {
+        background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+        color: white;
+        border: none;
+        padding: 15px 30px;
+        font-size: 16px;
+        border-radius: 10px;
+        cursor: pointer;
+        margin: 10px 5px;
+        transition:
+          transform 0.2s,
+          box-shadow 0.2s;
+        font-weight: 600;
+      }
+      button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 20px rgba(76, 175, 80, 0.4);
+      }
+      button:active {
+        transform: translateY(0);
+      }
+      .status {
+        margin-top: 20px;
+        padding: 15px;
+        border-radius: 10px;
+        display: none;
+      }
+      .status.show {
+        display: block;
+      }
+      .success {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+      }
+      .error {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+      }
+      .info {
+        background: #d1ecf1;
+        color: #0c5460;
+        border: 1px solid #bee5eb;
+        margin-bottom: 20px;
+        padding: 15px;
+        border-radius: 10px;
+      }
+      .button-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin: 20px 0;
+      }
+      .permission-status {
+        display: inline-block;
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-size: 14px;
+        margin-left: 10px;
+      }
+      .granted {
+        background: #d4edda;
+        color: #155724;
+      }
+      .denied {
+        background: #f8d7da;
+        color: #721c24;
+      }
+      .default {
+        background: #fff3cd;
+        color: #856404;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🌱 Plant Care Notification Tester</h1>
+      <p class="subtitle">Test your plant care reminders instantly</p>
+
+      <div class="info">
+        <strong>Permission Status:</strong>
+        <span class="permission-status" id="permissionStatus">Checking...</span>
+      </div>
+
+      <div class="button-group">
+        <button onclick="requestPermission()">🔔 Request Permission</button>
+        <button onclick="sendWateringNotification()">💧 Watering Reminder</button>
+        <button onclick="sendFertilizerNotification()">🌱 Fertilizer Reminder</button>
+        <button onclick="sendPruningNotification()">✂️ Pruning Reminder</button>
+      </div>
+
+      <div class="button-group">
+        <button onclick="sendMultiplePlantsNotification()">🪴 Multiple Plants</button>
+        <button onclick="sendUrgentNotification()">⚠️ Urgent Care Needed</button>
+        <button onclick="sendAchievementNotification()">🏆 Achievement Unlocked</button>
+      </div>
+
+      <div class="button-group">
+        <button onclick="clearLocalStorage()" style="background: #ff9800">
+          🧹 Reset Today's Notifications
+        </button>
+      </div>
+
+      <div id="status" class="status"></div>
+    </div>
+
+    <script>
+      // Plant-themed notification messages
+      const NOTIFICATIONS = {
+        watering: [
+          { title: '💧 Time to Water!', body: '🌱 Your Monstera is getting thirsty!' },
+          { title: '🌿 Plant Alert!', body: 'Your Snake Plant is calling for water! 💦' },
+          { title: '💚 Hydration Time!', body: 'Your Pothos needs a drink 🪴' },
+          { title: "🌱 Don't Forget!", body: 'Your Fiddle Leaf Fig misses you! Time to water 💧' },
+          { title: '🪴 Care Time!', body: 'Your Peace Lily says: "I\'m thirsty!" 💦' },
+        ],
+        fertilizer: [
+          { title: '🌱 Feeding Time!', body: 'Your Monstera needs some nutrients! 🌿' },
+          { title: '💚 Fertilizer Reminder', body: 'Give your Spider Plant some food today! 🪴' },
+          { title: '🌿 Nutrition Alert', body: 'Your Aloe Vera is ready for a boost!' },
+        ],
+        pruning: [
+          { title: '✂️ Grooming Time!', body: 'Your Jade Plant could use a trim! 🌿' },
+          { title: '🌱 Maintenance Alert', body: 'Time to prune your Philodendron! ✨' },
+          { title: '🪴 Spa Day!', body: 'Your Boston Fern needs some grooming today!' },
+        ],
+      }
+
+      // Check permission status on load
+      function updatePermissionStatus() {
+        const status = document.getElementById('permissionStatus')
+        const permission = Notification.permission
+
+        status.textContent = permission.toUpperCase()
+        status.className = 'permission-status ' + permission
+
+        if (permission === 'denied') {
+          showStatus(
+            'Notifications are blocked. Please enable them in your browser settings.',
+            'error',
+          )
+        }
+      }
+
+      // Request notification permission
+      async function requestPermission() {
+        try {
+          const permission = await Notification.requestPermission()
+          updatePermissionStatus()
+
+          if (permission === 'granted') {
+            showStatus('✅ Permission granted! You can now test notifications.', 'success')
+            sendWateringNotification()
+          } else {
+            showStatus('❌ Permission denied. Please allow notifications in your browser.', 'error')
+          }
+        } catch (error) {
+          showStatus('❌ Error: ' + error.message, 'error')
+        }
+      }
+
+      // Send watering notification
+      function sendWateringNotification() {
+        const notif = getRandomNotification('watering')
+        sendNotification(notif.title, notif.body, '/icon-192x192.png')
+      }
+
+      // Send fertilizer notification
+      function sendFertilizerNotification() {
+        const notif = getRandomNotification('fertilizer')
+        sendNotification(notif.title, notif.body, '/icon-192x192.png')
+      }
+
+      // Send pruning notification
+      function sendPruningNotification() {
+        const notif = getRandomNotification('pruning')
+        sendNotification(notif.title, notif.body, '/icon-192x192.png')
+      }
+
+      // Send multiple plants notification
+      function sendMultiplePlantsNotification() {
+        sendNotification(
+          '🌱 Plant Care Reminder',
+          'Monstera, Snake Plant, Pothos and 3 more need water today! 💧',
+          '/icon-192x192.png',
+        )
+      }
+
+      // Send urgent notification
+      function sendUrgentNotification() {
+        sendNotification(
+          '⚠️ Urgent Plant Care!',
+          "Your Fiddle Leaf Fig hasn't been watered in 2 weeks! 🆘",
+          '/icon-192x192.png',
+        )
+      }
+
+      // Send achievement notification
+      function sendAchievementNotification() {
+        sendNotification(
+          '🏆 Achievement Unlocked!',
+          "7 day streak! You're a Plant Parent Pro! 🌟",
+          '/icon-192x192.png',
+        )
+      }
+
+      // Generic send notification function
+      function sendNotification(title, body, icon) {
+        if (Notification.permission !== 'granted') {
+          showStatus('⚠️ Please grant notification permission first.', 'error')
+          requestPermission()
+          return
+        }
+
+        try {
+          const notification = new Notification(title, {
+            body: body,
+            icon: icon,
+            badge: '/icon-192x192.png',
+            tag: 'plant-test-' + Date.now(),
+            requireInteraction: false,
+            vibrate: [200, 100, 200],
+          })
+
+          notification.onclick = function () {
+            window.focus()
+            this.close()
+          }
+
+          showStatus(`✅ Notification sent: "${title}"`, 'success')
+        } catch (error) {
+          showStatus('❌ Error sending notification: ' + error.message, 'error')
+        }
+      }
+
+      // Get random notification from type
+      function getRandomNotification(type) {
+        const notifications = NOTIFICATIONS[type]
+        return notifications[Math.floor(Math.random() * notifications.length)]
+      }
+
+      // Clear localStorage flag
+      function clearLocalStorage() {
+        localStorage.removeItem('lastNotificationDate')
+        showStatus('🧹 Cleared! The app will send notifications again on next refresh.', 'success')
+      }
+
+      // Show status message
+      function showStatus(message, type) {
+        const statusDiv = document.getElementById('status')
+        statusDiv.textContent = message
+        statusDiv.className = 'status show ' + type
+
+        setTimeout(() => {
+          statusDiv.classList.remove('show')
+        }, 5000)
+      }
+
+      // Initialize
+      updatePermissionStatus()
+
+      // Auto-check permission every 2 seconds
+      setInterval(updatePermissionStatus, 2000)
+    </script>
+  </body>
+</html>

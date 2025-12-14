@@ -17,12 +17,7 @@
           <h3 class="text-h6 mb-3">Plant Photo</h3>
           <div class="photo-container">
             <div v-if="form.photoURL" class="photo-preview">
-              <v-img
-                :src="form.photoURL"
-                height="200"
-                cover
-                class="rounded"
-              />
+              <v-img :src="form.photoURL" height="200" cover class="rounded" />
               <v-btn
                 @click="removePhoto"
                 icon="mdi-close"
@@ -110,18 +105,10 @@
 
           <v-row>
             <v-col cols="6">
-              <v-switch
-                v-model="form.needsFertilizer"
-                label="Needs Fertilizer"
-                color="primary"
-              />
+              <v-switch v-model="form.needsFertilizer" label="Needs Fertilizer" color="primary" />
             </v-col>
             <v-col cols="6">
-              <v-switch
-                v-model="form.needsPruning"
-                label="Needs Pruning"
-                color="primary"
-              />
+              <v-switch v-model="form.needsPruning" label="Needs Pruning" color="primary" />
             </v-col>
           </v-row>
         </v-form>
@@ -132,9 +119,7 @@
       <v-card-actions class="pa-4">
         <v-spacer />
         <v-btn @click="closeDialog" variant="text">Cancel</v-btn>
-        <v-btn @click="updatePlant" :loading="saving" color="primary">
-          Update Plant
-        </v-btn>
+        <v-btn @click="updatePlant" :loading="saving" color="primary"> Update Plant </v-btn>
       </v-card-actions>
     </v-card>
 
@@ -153,11 +138,13 @@
 import { ref, computed, watch } from 'vue'
 import { doc, updateDoc } from 'firebase/firestore'
 import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
-import { db, storage } from '@/firebase'
+import { db, storage, auth } from '@/firebase'
+import { handlePlantPhotographed } from '@/utils/achievements'
+import { logAchievementUnlocked, logPlantPhotoAdded } from '@/services/activityService'
 
 const props = defineProps({
   modelValue: Boolean,
-  plant: Object
+  plant: Object,
 })
 
 const emit = defineEmits(['update:modelValue', 'plant-updated'])
@@ -168,7 +155,7 @@ const fileInput = ref(null)
 
 const internalDialog = computed({
   get: () => props.modelValue,
-  set: (value) => emit('update:modelValue', value)
+  set: (value) => emit('update:modelValue', value),
 })
 
 const form = ref({
@@ -182,12 +169,20 @@ const form = ref({
   lightRequirement: 'bright-indirect',
   needsFertilizer: false,
   needsPruning: false,
-  _photoFile: null
+  _photoFile: null,
 })
 
 const plantTypes = [
-  'Monstera Deliciosa', 'Snake Plant', 'Pothos', 'Peace Lily', 'Rubber Plant',
-  'Fiddle Leaf Fig', 'ZZ Plant', 'Spider Plant', 'Aloe Vera', 'Succulent'
+  'Monstera Deliciosa',
+  'Snake Plant',
+  'Pothos',
+  'Peace Lily',
+  'Rubber Plant',
+  'Fiddle Leaf Fig',
+  'ZZ Plant',
+  'Spider Plant',
+  'Aloe Vera',
+  'Succulent',
 ]
 
 const wateringOptions = [
@@ -203,31 +198,35 @@ const lightOptions = [
   { title: 'Low Light', value: 'low' },
   { title: 'Bright Indirect', value: 'bright-indirect' },
   { title: 'Bright Direct', value: 'bright-direct' },
-  { title: 'Full Sun', value: 'full-sun' }
+  { title: 'Full Sun', value: 'full-sun' },
 ]
 
 const rules = {
-  required: value => !!value || 'This field is required'
+  required: (value) => !!value || 'This field is required',
 }
 
 // Load plant data when dialog opens
-watch(() => props.plant, (plant) => {
-  if (plant) {
-    form.value = {
-      nickname: plant.nickname || '',
-      plantType: plant.plantType || '',
-      location: plant.location || '',
-      notes: plant.notes || '',
-      photoURL: plant.photoURL || '',
-      wateringFrequency: plant.wateringFrequency || 'weekly',
-      customWateringDays: plant.customWateringDays || 7,
-      lightRequirement: plant.lightRequirement || 'bright-indirect',
-      needsFertilizer: plant.needsFertilizer || false,
-      needsPruning: plant.needsPruning || false,
-      _photoFile: null
+watch(
+  () => props.plant,
+  (plant) => {
+    if (plant) {
+      form.value = {
+        nickname: plant.nickname || '',
+        plantType: plant.plantType || '',
+        location: plant.location || '',
+        notes: plant.notes || '',
+        photoURL: plant.photoURL || '',
+        wateringFrequency: plant.wateringFrequency || 'weekly',
+        customWateringDays: plant.customWateringDays || 7,
+        lightRequirement: plant.lightRequirement || 'bright-indirect',
+        needsFertilizer: plant.needsFertilizer || false,
+        needsPruning: plant.needsPruning || false,
+        _photoFile: null,
+      }
     }
-  }
-}, { immediate: true })
+  },
+  { immediate: true },
+)
 
 // Photo handling
 const selectPhoto = () => {
@@ -262,9 +261,12 @@ const updatePlant = async () => {
     if (form.value._photoFile) {
       console.log('New photo file detected, checking for old photo to delete')
       console.log('Old photo URL:', props.plant.photoURL)
-      
+
       // Delete old photo from storage if it exists and is different
-      if (props.plant.photoURL && props.plant.photoURL.startsWith('https://firebasestorage.googleapis.com')) {
+      if (
+        props.plant.photoURL &&
+        props.plant.photoURL.startsWith('https://firebasestorage.googleapis.com')
+      ) {
         try {
           console.log('Attempting to delete old photo from storage')
           const url = new URL(props.plant.photoURL)
@@ -303,11 +305,34 @@ const updatePlant = async () => {
       lightRequirement: form.value.lightRequirement,
       needsFertilizer: form.value.needsFertilizer,
       needsPruning: form.value.needsPruning,
-      updatedAt: new Date()
+      updatedAt: new Date(),
     }
 
     const plantRef = doc(db, 'plants', props.plant.id)
     await updateDoc(plantRef, updateData)
+
+    // If a new photo was added, check photo achievement
+    const uid = auth.currentUser?.uid
+    if (uid && form.value._photoFile && photoURL) {
+      try {
+        // Log photo added activity
+        logPlantPhotoAdded(uid, { id: props.plant.id, nickname: form.value.nickname }).catch(
+          (err) => {
+            console.error('Failed to log photo activity:', err)
+          },
+        )
+
+        // Check for photo achievement unlock
+        const photoUnlock = await handlePlantPhotographed(uid)
+        if (photoUnlock) {
+          logAchievementUnlocked(uid, photoUnlock).catch((err) => {
+            console.error('Failed to log achievement unlock:', err)
+          })
+        }
+      } catch (err) {
+        console.error('Failed to update photo achievement:', err)
+      }
+    }
 
     emit('plant-updated', { id: props.plant.id, ...updateData })
     closeDialog()
@@ -325,7 +350,37 @@ const closeDialog = () => {
 
 <style scoped>
 .edit-plant-dialog {
-  border-radius: 12px !important;
+  border-radius: var(--radius-xl, 16px) !important;
+  overflow: hidden;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+}
+
+/* Gradient accent bar */
+.edit-plant-dialog::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  background: linear-gradient(90deg, rgb(var(--v-theme-primary)), rgb(var(--v-theme-success)));
+  z-index: 10;
+}
+
+.edit-plant-dialog :deep(.v-card-title) {
+  font-family: var(--font-display, 'Manrope', sans-serif);
+  font-weight: 700;
+  padding-top: 24px !important;
+}
+
+.edit-plant-dialog :deep(.v-card-actions) {
+  background: rgba(var(--v-theme-on-surface), 0.02);
+  border-top: 1px solid rgba(var(--v-theme-on-surface), 0.06);
+}
+
+.photo-section h3 {
+  font-family: var(--font-display, 'Manrope', sans-serif);
+  font-weight: 700;
 }
 
 .photo-container {
@@ -339,27 +394,58 @@ const closeDialog = () => {
   width: 200px;
 }
 
+.photo-preview :deep(.v-img) {
+  border-radius: var(--radius-xl, 16px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+}
+
 .photo-remove-btn {
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: 12px;
+  right: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
 }
 
 .photo-upload-area {
   width: 200px;
   height: 200px;
-  border: 2px dashed #ccc;
-  border-radius: 8px;
+  border: 2px dashed rgba(var(--v-theme-primary), 0.3);
+  border-radius: var(--radius-xl, 16px);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
+  background: linear-gradient(
+    135deg,
+    rgba(var(--v-theme-primary), 0.04),
+    rgba(var(--v-theme-success), 0.04)
+  );
 }
 
 .photo-upload-area:hover {
-  border-color: #4caf50;
-  background-color: rgba(76, 175, 80, 0.05);
+  border-color: rgb(var(--v-theme-primary));
+  background: linear-gradient(
+    135deg,
+    rgba(var(--v-theme-primary), 0.08),
+    rgba(var(--v-theme-success), 0.08)
+  );
+  transform: scale(1.02);
+}
+
+.edit-plant-dialog :deep(.v-field) {
+  border-radius: var(--radius-lg, 12px);
+}
+
+@media (max-width: 600px) {
+  .edit-plant-dialog {
+    margin: 0;
+    border-radius: 0 !important;
+  }
+
+  .edit-plant-dialog::before {
+    display: none;
+  }
 }
 </style>

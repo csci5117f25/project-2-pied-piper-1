@@ -210,6 +210,7 @@ import { onAuthStateChanged } from 'firebase/auth'
 import { doc, updateDoc, getDoc } from 'firebase/firestore'
 import { auth, db } from '@/firebase'
 import AddPlantDialog from '@/components/AddPlantDialog.vue'
+import { requestPermissionAndToken, isMessagingSupported } from '@/services/notificationService'
 
 const router = useRouter()
 
@@ -237,12 +238,12 @@ onMounted(() => {
   onAuthStateChanged(auth, async (currentUser) => {
     if (currentUser) {
       user.value = currentUser
-      
+
       // Check if user has already completed onboarding
       try {
         const userRef = doc(db, 'users', currentUser.uid)
         const userDoc = await getDoc(userRef)
-        
+
         if (userDoc.exists() && userDoc.data().onboardingCompleted) {
           // User has already completed onboarding, redirect to main app
           router.push('/app/home')
@@ -325,6 +326,19 @@ const requestNotificationPermission = async () => {
       throw new Error('This browser does not support notifications')
     }
 
+    // Use FCM token generation if supported
+    if (user.value && isMessagingSupported()) {
+      const token = await requestPermissionAndToken(user.value.uid)
+
+      if (token) {
+        notificationsEnabled.value = true
+        console.log('FCM token obtained and saved')
+        nextStep()
+        return
+      }
+    }
+
+    // Fallback to basic notification permission
     const permission = await Notification.requestPermission()
 
     if (permission === 'granted') {

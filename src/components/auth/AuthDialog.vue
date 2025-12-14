@@ -1,14 +1,22 @@
 <template>
   <v-card class="auth-dialog">
-    <v-card-title class="text-center pa-6">
-      <div>
-        <v-icon size="48" color="primary" class="mb-2"> mdi-sprout </v-icon>
-        <div class="text-h5 text-primary">Plant Care Tracker</div>
-        <div class="text-subtitle-1 text-medium-emphasis">
-          {{ isLogin ? 'Welcome back!' : 'Join the plant community' }}
+    <!-- Header with gradient accent -->
+    <div class="auth-header">
+      <div class="header-accent"></div>
+      <div class="header-content">
+        <div class="logo-mini">
+          <v-icon size="32" color="white">mdi-leaf</v-icon>
         </div>
+        <h2 class="auth-title">{{ isLogin ? 'Welcome back' : 'Create account' }}</h2>
+        <p class="auth-subtitle">
+          {{
+            isLogin
+              ? 'Sign in to continue caring for your plants'
+              : 'Start your plant care journey today'
+          }}
+        </p>
       </div>
-    </v-card-title>
+    </div>
 
     <v-card-text class="pa-6">
       <!-- Tab Navigation -->
@@ -152,20 +160,41 @@
       <v-btn
         @click="handleGoogleSignIn"
         variant="outlined"
-        color="primary"
         size="large"
         block
         :loading="loading"
-        class="text-none"
-        prepend-icon="mdi-google"
+        class="google-btn"
       >
-        {{ isLogin ? 'Sign in' : 'Sign up' }} with Google
+        <template v-slot:prepend>
+          <svg class="google-icon" viewBox="0 0 24 24" width="20" height="20">
+            <path
+              fill="#4285F4"
+              d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+            />
+            <path
+              fill="#34A853"
+              d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+            />
+            <path
+              fill="#FBBC05"
+              d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+            />
+            <path
+              fill="#EA4335"
+              d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+            />
+          </svg>
+        </template>
+        Continue with Google
       </v-btn>
     </v-card-text>
 
     <!-- Close Button -->
-    <v-card-actions class="justify-end pa-4">
-      <v-btn @click="$emit('close')" variant="text" prepend-icon="mdi-close"> Cancel </v-btn>
+    <v-card-actions class="auth-footer">
+      <v-btn @click="$emit('close')" variant="text" color="error" size="small">
+        <v-icon size="18" class="mr-1">mdi-close</v-icon>
+        Cancel
+      </v-btn>
     </v-card-actions>
 
     <!-- Forgot Password Dialog -->
@@ -284,13 +313,13 @@ const createUserProfile = async (user, displayName = null, isNewUser = false) =>
       numberOfPlants: 0,
       lastLogin: serverTimestamp(),
     }
-    
+
     // Only set onboardingCompleted for new users
     if (isNewUser) {
       profileData.onboardingCompleted = false
       profileData.createdAt = serverTimestamp()
     }
-    
+
     await setDoc(userRef, profileData, { merge: true })
   } catch (error) {
     console.error('Error creating user profile:', error)
@@ -381,7 +410,7 @@ const handleGoogleSignIn = async () => {
     const userRef = doc(db, 'users', userCredential.user.uid)
     const userDoc = await getDoc(userRef)
     const isNewUser = !userDoc.exists()
-    
+
     await createUserProfile(userCredential.user, null, isNewUser)
 
     showSuccess.value = true
@@ -448,17 +477,113 @@ const getAuthErrorMessage = (errorCode) => {
 .auth-dialog {
   max-height: 90vh;
   overflow-y: auto;
+  border-radius: 24px !important;
+  background: rgb(var(--v-theme-surface)) !important;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.06) !important;
 }
 
+/* Header */
+.auth-header {
+  position: relative;
+  padding: 32px 24px 24px;
+  text-align: center;
+  overflow: hidden;
+}
+
+.header-accent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background: linear-gradient(90deg, #059669 0%, #10b981 50%, #34d399 100%);
+}
+
+.header-content {
+  position: relative;
+}
+
+.logo-mini {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+  box-shadow: 0 8px 24px rgba(5, 150, 105, 0.25);
+}
+
+.auth-title {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: rgb(var(--v-theme-on-surface));
+  margin-bottom: 8px;
+}
+
+.auth-subtitle {
+  font-size: 0.9rem;
+  color: rgba(var(--v-theme-on-surface), 0.6);
+  margin: 0;
+}
+
+/* Tabs */
+.v-tab {
+  text-transform: none !important;
+  font-weight: 500 !important;
+  font-size: 0.9rem !important;
+}
+
+/* Buttons */
 .v-btn {
-  border-radius: 8px !important;
+  font-weight: 600 !important;
 }
 
+.google-btn {
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.15) !important;
+  color: rgb(var(--v-theme-on-surface)) !important;
+  font-weight: 500 !important;
+  height: 48px !important;
+}
+
+.google-btn:hover {
+  background: rgba(var(--v-theme-on-surface), 0.04) !important;
+}
+
+.google-icon {
+  margin-right: 8px;
+}
+
+/* Footer */
+.auth-footer {
+  justify-content: center;
+  padding: 16px 24px 24px;
+  border-top: 1px solid rgba(var(--v-theme-on-surface), 0.06);
+}
+
+/* Form Inputs */
 .v-text-field {
   margin-bottom: 0;
 }
 
-.v-tab {
-  text-transform: none !important;
+:deep(.v-field) {
+  border-radius: 12px !important;
+}
+
+:deep(.v-field__outline) {
+  --v-field-border-opacity: 0.12;
+}
+
+/* Links */
+a {
+  color: rgb(var(--v-theme-primary));
+  text-decoration: none;
+  font-weight: 500;
+}
+
+a:hover {
+  text-decoration: underline;
 }
 </style>
