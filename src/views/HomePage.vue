@@ -4,12 +4,12 @@
     <v-row class="mb-4">
       <v-col cols="12" md="8">
         <!-- Enhanced Weather Widget -->
-        <WeatherWidget 
-          :temperature="22" 
-          condition="Sunny" 
-          location="Minneapolis, MN"
-          :humidity="65"
-          :wind-speed="8"
+        <WeatherWidget
+          :weather-data="weatherData"
+          :recommendation="wateringRecommendation"
+          :loading="weatherLoading"
+          :error="weatherError"
+          @retry="fetchWeatherData"
         />
       </v-col>
 
@@ -27,10 +27,7 @@
     <!-- Enhanced Calendar Widget -->
     <v-row class="mb-4">
       <v-col cols="12">
-        <CalendarWidget 
-          :plants="plants" 
-          @day-selected="onDaySelected"
-        />
+        <CalendarWidget :plants="plants" @day-selected="onDaySelected" />
       </v-col>
     </v-row>
 
@@ -112,9 +109,10 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { onAuthStateChanged } from 'firebase/auth'
-import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore'
+import { collection, query, where, onSnapshot, doc, updateDoc, getDoc } from 'firebase/firestore'
 import { auth, db } from '@/firebase'
 import { handlePlantWatered, handleAllPlantsHealthy } from '@/utils/achievements'
+import { getWeatherForCurrentLocation } from '@/services/weatherService'
 import WeatherWidget from '@/components/WeatherWidget.vue'
 import CalendarWidget from '@/components/CalendarWidget.vue'
 
@@ -124,6 +122,12 @@ const selectedDate = ref(new Date())
 const showSuccess = ref(false)
 const successMessage = ref('')
 const plants = ref([])
+
+// Weather data
+const weatherData = ref(null)
+const wateringRecommendation = ref(null)
+const weatherLoading = ref(false)
+const weatherError = ref(null)
 
 // Calendar event handler
 const onDaySelected = (day) => {
@@ -147,20 +151,22 @@ const needsWateringOnDate = (plant, targetDate) => {
     return false
   }
 
-  const lastWateredDate = plant.lastWatered.toDate ? plant.lastWatered.toDate() : new Date(plant.lastWatered)
+  const lastWateredDate = plant.lastWatered.toDate
+    ? plant.lastWatered.toDate()
+    : new Date(plant.lastWatered)
   const target = new Date(targetDate)
-  
+
   // Set both dates to midnight for accurate day comparison
   lastWateredDate.setHours(0, 0, 0, 0)
   target.setHours(0, 0, 0, 0)
-  
+
   const daysSinceWatering = Math.floor((target - lastWateredDate) / (1000 * 60 * 60 * 24))
 
   // Check if the target date falls exactly on a watering day
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const isToday = target.getTime() === today.getTime()
-  
+
   // Handle different watering frequencies
   if (plant.wateringFrequency === 'daily') {
     return daysSinceWatering >= 1
@@ -173,7 +179,9 @@ const needsWateringOnDate = (plant, targetDate) => {
     if (isToday && daysSinceWatering >= daysUntilNextWatering) {
       return true
     }
-    return daysSinceWatering >= daysUntilNextWatering && daysSinceWatering % daysUntilNextWatering === 0
+    return (
+      daysSinceWatering >= daysUntilNextWatering && daysSinceWatering % daysUntilNextWatering === 0
+    )
   } else {
     // Weekly, biweekly, monthly
     let daysUntilNextWatering
@@ -190,13 +198,15 @@ const needsWateringOnDate = (plant, targetDate) => {
       default:
         daysUntilNextWatering = 7 // Default to weekly
     }
-    
+
     // If the plant is overdue (daysSinceWatering > interval), show it on today
     if (isToday && daysSinceWatering >= daysUntilNextWatering) {
       return true
     }
     // Otherwise, show only on exact interval days (7, 14, 21 for weekly, etc.)
-    return daysSinceWatering >= daysUntilNextWatering && daysSinceWatering % daysUntilNextWatering === 0
+    return (
+      daysSinceWatering >= daysUntilNextWatering && daysSinceWatering % daysUntilNextWatering === 0
+    )
   }
 }
 
@@ -215,10 +225,10 @@ const sectionTitle = computed(() => {
     return 'Plants to Water Today'
   }
   const date = new Date(selectedDate.value)
-  return `Plants to Water on ${date.toLocaleDateString('en-US', { 
-    weekday: 'long', 
-    month: 'long', 
-    day: 'numeric' 
+  return `Plants to Water on ${date.toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
   })}`
 })
 
@@ -228,10 +238,10 @@ const selectedDateText = computed(() => {
     return 'No plants need watering today. Great job!'
   }
   const date = new Date(selectedDate.value)
-  return `No plants need watering on ${date.toLocaleDateString('en-US', { 
-    weekday: 'long', 
-    month: 'long', 
-    day: 'numeric' 
+  return `No plants need watering on ${date.toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
   })}.`
 })
 
@@ -240,6 +250,34 @@ const plantsToday = computed(() => {
   const targetDate = selectedDate.value
   return plants.value.filter((plant) => needsWateringOnDate(plant, targetDate))
 })
+
+// Fetch weather data
+const fetchWeatherData = async () => {
+  weatherLoading.value = true
+  weatherError.value = null
+
+  try {
+    // Check if user has location enabled in settings
+    if (user.value) {
+      const userDoc = await getDoc(doc(db, 'users', user.value.uid))
+      const userData = userDoc.data()
+
+      if (userData?.locationEnabled === false) {
+        weatherError.value = 'Location services disabled in settings'
+        return
+      }
+    }
+
+    const result = await getWeatherForCurrentLocation()
+    weatherData.value = result.weather
+    wateringRecommendation.value = result.recommendation
+  } catch (error) {
+    console.error('Error fetching weather:', error)
+    weatherError.value = error.message || 'Unable to load weather data'
+  } finally {
+    weatherLoading.value = false
+  }
+}
 
 // Listen for user and plants
 onMounted(() => {
@@ -256,6 +294,9 @@ onMounted(() => {
           ...doc.data(),
         }))
       })
+
+      // Fetch weather data
+      fetchWeatherData()
     }
   })
 })
@@ -267,7 +308,7 @@ const completePlantWatering = async (plant) => {
     await updateDoc(plantRef, {
       lastWatered: new Date(),
     })
-    
+
     // Update achievements
     const uid = auth.currentUser?.uid
     if (uid) {
@@ -278,7 +319,7 @@ const completePlantWatering = async (plant) => {
         console.error('Failed to update Green Thumb achievement:', err)
       })
     }
-    
+
     showSuccess.value = true
     successMessage.value = `${plant.nickname} watered! 💧`
   } catch (error) {
@@ -305,10 +346,6 @@ const skipPlantWatering = async (plant) => {
   padding-top: 16px;
   padding-bottom: 100px; /* Account for bottom navigation */
 }
-
-
-
-
 
 .plant-card-item {
   transition: background-color 0.2s ease;

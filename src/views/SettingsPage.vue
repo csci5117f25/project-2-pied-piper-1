@@ -391,21 +391,51 @@ const updateNotificationSettings = async (enabled) => {
 }
 
 const updateLocationSettings = async (enabled) => {
-  if (enabled && 'geolocation' in navigator) {
-    navigator.geolocation.getCurrentPosition(
-      () => {
-        showSuccess.value = true
-        successMessage.value = 'Location access enabled'
-      },
-      () => {
-        settings.value.location = false
-        showSuccess.value = true
-        successMessage.value = 'Location access denied'
-      },
-    )
-  } else {
+  try {
+    if (enabled && 'geolocation' in navigator) {
+      // Request location permission
+      const position = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: false,
+          timeout: 10000,
+          maximumAge: 5 * 60 * 1000,
+        })
+      })
+
+      // Save location preference to Firestore
+      if (user.value) {
+        const { doc, updateDoc } = await import('firebase/firestore')
+        const { db } = await import('@/firebase')
+        const userRef = doc(db, 'users', user.value.uid)
+        await updateDoc(userRef, {
+          locationEnabled: true,
+          lastLocation: {
+            lat: position.coords.latitude,
+            lon: position.coords.longitude,
+            timestamp: new Date(),
+          },
+        })
+      }
+
+      showSuccess.value = true
+      successMessage.value = 'Location access enabled'
+    } else {
+      // Save disabled preference
+      if (user.value) {
+        const { doc, updateDoc } = await import('firebase/firestore')
+        const { db } = await import('@/firebase')
+        const userRef = doc(db, 'users', user.value.uid)
+        await updateDoc(userRef, { locationEnabled: false })
+      }
+
+      showSuccess.value = true
+      successMessage.value = 'Location access disabled'
+    }
+  } catch (error) {
+    console.error('Location error:', error)
+    settings.value.location = false
     showSuccess.value = true
-    successMessage.value = 'Location access disabled'
+    successMessage.value = 'Location access denied'
   }
 }
 
