@@ -140,7 +140,7 @@ const onAuthenticated = () => {
 
 <style scoped>
 .splash-app {
-  background: linear-gradient(135deg, #fafafa 0%, #f1f5f9 100%);
+  background: url('/wallpaper.jpg') center/cover no-repeat fixed;
 }
 
 .splash-container {

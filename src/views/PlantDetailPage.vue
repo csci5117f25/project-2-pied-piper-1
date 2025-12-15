@@ -314,12 +314,16 @@
       style="display: none"
       @change="handleFileSelect"
     />
+
+    <!-- Level Up Dialog -->
+    <LevelUpDialog v-model="showLevelUpDialog" :levelUpData="levelUpData" />
   </v-container>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import LevelUpDialog from '@/components/LevelUpDialog.vue'
 import {
   doc,
   getDoc,
@@ -334,6 +338,8 @@ import {
   handlePlantWatered,
   handleAllPlantsHealthy,
   handlePlantPhotographed,
+  handleTaskCompleted,
+  checkAndResetDailyTasks,
 } from '@/utils/achievements'
 import {
   logPlantWatered,
@@ -357,6 +363,10 @@ const showPhotoOptions = ref(false)
 const fileInput = ref(null)
 const user = ref(null)
 const plant = ref(null)
+
+// Level up dialog
+const showLevelUpDialog = ref(false)
+const levelUpData = ref(null)
 
 // Form data
 const plantForm = ref({
@@ -599,6 +609,12 @@ const waterPlant = async () => {
     // Log activity and update achievements
     const uid = auth.currentUser?.uid
     if (uid) {
+      // Check and reset daily tasks if needed
+      await checkAndResetDailyTasks(uid)
+
+      // Award XP for watering task
+      const xpResult = await handleTaskCompleted(uid, 'water', route.params.id)
+
       // Log the watering activity
       logPlantWatered(uid, { id: route.params.id, ...plant.value }).catch((err) => {
         console.error('Failed to log watering activity:', err)
@@ -625,6 +641,20 @@ const waterPlant = async () => {
           console.error('Failed to log achievement unlock:', err)
         })
       }
+
+      // Show level up dialog if leveled up
+      if (xpResult.levelUp) {
+        showLevelUpDialog.value = true
+        levelUpData.value = xpResult.levelUp
+      }
+
+      // Show XP notification
+      if (xpResult.xpEarned > 0) {
+        console.log(
+          `Watering completed! +${xpResult.xpEarned} XP`,
+          xpResult.allThreeCompleted ? '(All tasks bonus!)' : '',
+        )
+      }
     }
   } catch (error) {
     console.error('Error updating watering:', error)
@@ -641,6 +671,27 @@ const fertilizePlant = async () => {
     // Update local state
     plant.value.lastFertilized = new Date()
 
+    // Award XP for fertilizing task
+    const uid = auth.currentUser?.uid
+    if (uid) {
+      await checkAndResetDailyTasks(uid)
+      const xpResult = await handleTaskCompleted(uid, 'fertilize', plant.value.id)
+
+      // Show level up dialog if leveled up
+      if (xpResult.levelUp) {
+        showLevelUpDialog.value = true
+        levelUpData.value = xpResult.levelUp
+      }
+
+      // Show XP notification
+      if (xpResult.xpEarned > 0) {
+        console.log(
+          `Fertilizing completed! +${xpResult.xpEarned} XP`,
+          xpResult.allThreeCompleted ? '(All tasks bonus!)' : '',
+        )
+      }
+    }
+
     console.log('Plant fertilized successfully')
   } catch (error) {
     console.error('Error fertilizing plant:', error)
@@ -656,6 +707,27 @@ const maintainPlant = async () => {
 
     // Update local state
     plant.value.lastMaintenance = new Date()
+
+    // Award XP for maintenance task
+    const uid = auth.currentUser?.uid
+    if (uid) {
+      await checkAndResetDailyTasks(uid)
+      const xpResult = await handleTaskCompleted(uid, 'maintenance', plant.value.id)
+
+      // Show level up dialog if leveled up
+      if (xpResult.levelUp) {
+        showLevelUpDialog.value = true
+        levelUpData.value = xpResult.levelUp
+      }
+
+      // Show XP notification
+      if (xpResult.xpEarned > 0) {
+        console.log(
+          `Maintenance completed! +${xpResult.xpEarned} XP`,
+          xpResult.allThreeCompleted ? '(All tasks bonus!)' : '',
+        )
+      }
+    }
 
     console.log('Plant maintenance completed successfully')
   } catch (error) {

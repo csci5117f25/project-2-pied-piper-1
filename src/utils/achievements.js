@@ -16,45 +16,56 @@ import { db } from '@/firebase'
  * @param {string} userId - The user's ID
  * @returns {Promise<Array>} Array of newly unlocked achievements
  */
-export async function handlePlantAdded(userId) {
+export async function handlePlantAdded(userId, plantCount = null) {
   if (!userId) return []
 
   const unlockedAchievements = []
 
   try {
-    // Read user's current plant count
-    const userRef = doc(db, 'users', userId)
-    const userSnap = await getDoc(userRef)
-    const count = userSnap.exists() ? userSnap.data().numberOfPlants || 0 : 0
+    // Use provided plant count or read from user doc
+    let count = plantCount
+    if (count === null) {
+      const userRef = doc(db, 'users', userId)
+      const userSnap = await getDoc(userRef)
+      count = userSnap.exists() ? userSnap.data().numberOfPlants || 0 : 0
+    }
     console.log('handlePlantAdded: user', userId, 'plantCount=', count)
 
-    // Update first-plant achievement
+    // Update first-plant achievement - only when count is exactly 1 (first plant)
     const firstRef = doc(db, 'users', userId, 'achievements', 'first-plant')
     const firstSnap = await getDoc(firstRef)
     const wasFirstUnlocked = firstSnap.exists() && firstSnap.data().unlocked
 
-    if (count >= 1) {
-      await setDoc(
-        firstRef,
-        {
-          name: 'First Plant',
-          progress: 1,
-          target: 1,
-          unlocked: true,
-          unlockedDate: serverTimestamp(),
-          xpReward: 10,
-        },
-        { merge: true },
-      )
+    // Only process first plant achievement if this is actually the first plant
+    if (count === 1 && !wasFirstUnlocked) {
+      await setDoc(firstRef, {
+        name: 'First Plant',
+        progress: 1,
+        target: 1,
+        unlocked: true,
+        unlockedDate: serverTimestamp(),
+        xpReward: 10,
+      })
 
-      if (!wasFirstUnlocked) {
-        unlockedAchievements.push({
-          id: 'first-plant',
-          name: 'First Plant',
-          icon: 'mdi-sprout-outline',
-          xpReward: 10,
-        })
-      }
+      unlockedAchievements.push({
+        id: 'first-plant',
+        name: 'First Plant',
+        icon: 'mdi-sprout-outline',
+        xpReward: 10,
+        color: 'success',
+        description: 'Added your first plant to the garden',
+      })
+    } else if (count >= 1 && !firstSnap.exists()) {
+      // Edge case: user has plants but achievement doc doesn't exist
+      // Create it silently without showing unlock animation
+      await setDoc(firstRef, {
+        name: 'First Plant',
+        progress: 1,
+        target: 1,
+        unlocked: true,
+        unlockedDate: serverTimestamp(),
+        xpReward: 10,
+      })
     }
 
     // Update plant-collector achievement
@@ -91,6 +102,8 @@ export async function handlePlantAdded(userId) {
           name: 'Plant Collector',
           icon: 'mdi-leaf-circle',
           xpReward: 50,
+          color: 'primary',
+          description: 'Collected 5 plants in your garden',
         })
       }
     })
@@ -694,5 +707,261 @@ export async function syncAllAchievements(userId) {
   } catch (error) {
     console.error('Error syncing achievements:', error)
     return unlockedAchievements
+  }
+}
+/**
+ * Level progression thresholds
+ * Each level requires increasing XP
+ */
+export const LEVEL_THRESHOLDS = [
+  { level: 1, xpRequired: 0, name: 'Seed Starter', icon: 'mdi-seed' },
+  { level: 2, xpRequired: 100, name: 'Sprout Caretaker', icon: 'mdi-sprout' },
+  { level: 3, xpRequired: 300, name: 'Green Thumb', icon: 'mdi-hand' },
+  { level: 4, xpRequired: 600, name: 'Plant Parent', icon: 'mdi-leaf' },
+  { level: 5, xpRequired: 1000, name: 'Garden Guardian', icon: 'mdi-tree' },
+  { level: 6, xpRequired: 1500, name: 'Plant Whisperer', icon: 'mdi-flower' },
+  { level: 7, xpRequired: 2100, name: 'Nature Master', icon: 'mdi-forest' },
+]
+
+/**
+ * Calculate current level from total XP
+ */
+export function calculateLevel(totalXP) {
+  for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) {
+    if (totalXP >= LEVEL_THRESHOLDS[i].xpRequired) {
+      return LEVEL_THRESHOLDS[i].level
+    }
+  }
+  return 1
+}
+
+/**
+ * Get level info for a specific level
+ */
+export function getLevelInfo(level) {
+  return LEVEL_THRESHOLDS.find((l) => l.level === level) || LEVEL_THRESHOLDS[0]
+}
+
+/**
+ * Get XP progress for current level
+ */
+export function getLevelProgress(totalXP) {
+  const currentLevel = calculateLevel(totalXP)
+  const currentLevelInfo = getLevelInfo(currentLevel)
+  const nextLevelInfo = getLevelInfo(currentLevel + 1)
+
+  if (!nextLevelInfo) {
+    // Max level reached
+    return {
+      currentLevel,
+      currentLevelInfo,
+      xpInCurrentLevel: totalXP - currentLevelInfo.xpRequired,
+      xpNeededForNext: 0,
+      progress: 100,
+      isMaxLevel: true,
+    }
+  }
+
+  const xpInCurrentLevel = totalXP - currentLevelInfo.xpRequired
+  const xpNeededForNext = nextLevelInfo.xpRequired - currentLevelInfo.xpRequired
+  const progress = (xpInCurrentLevel / xpNeededForNext) * 100
+
+  return {
+    currentLevel,
+    currentLevelInfo,
+    nextLevelInfo,
+    xpInCurrentLevel,
+    xpNeededForNext,
+    xpToNextLevel: nextLevelInfo.xpRequired - totalXP,
+    progress,
+    isMaxLevel: false,
+  }
+}
+
+/**
+ * Check and update user level if XP threshold reached
+ * @returns {object|null} Level up info if level increased, null otherwise
+ */
+export async function checkLevelUp(userId, newXP) {
+  try {
+    const userRef = doc(db, 'users', userId)
+    const userSnap = await getDoc(userRef)
+    if (!userSnap.exists()) return null
+
+    const currentLevel = userSnap.data().level || 1
+    const newLevel = calculateLevel(newXP)
+
+    if (newLevel > currentLevel) {
+      await setDoc(userRef, { level: newLevel }, { merge: true })
+
+      const oldLevelInfo = getLevelInfo(currentLevel)
+      const newLevelInfo = getLevelInfo(newLevel)
+
+      return {
+        oldLevel: currentLevel,
+        newLevel,
+        oldLevelInfo,
+        newLevelInfo,
+      }
+    }
+
+    return null
+  } catch (error) {
+    console.error('Error checking level up:', error)
+    return null
+  }
+}
+
+/**
+ * XP rewards for each task type
+ */
+const TASK_XP_REWARDS = {
+  water: 30,
+  fertilize: 35,
+  maintenance: 35,
+  allThree: 35, // Bonus XP when all 3 tasks completed on same plant
+}
+
+/**
+ * Handle task completion and award XP
+ * @param {string} userId - The user's ID
+ * @param {string} taskType - 'water', 'fertilize', or 'maintenance'
+ * @param {string} plantId - The plant's ID
+ * @returns {Promise<object>} Object with xpEarned, totalXP, and levelUp info
+ */
+export async function handleTaskCompleted(userId, taskType, plantId) {
+  if (!userId || !taskType || !plantId) {
+    return { xpEarned: 0, totalXP: 0, levelUp: null }
+  }
+
+  try {
+    const result = await runTransaction(db, async (transaction) => {
+      const userRef = doc(db, 'users', userId)
+      const userSnap = await transaction.get(userRef)
+
+      if (!userSnap.exists()) {
+        throw new Error('User document not found')
+      }
+
+      const userData = userSnap.data()
+      let tasksCompletedToday = userData.tasksCompletedToday || []
+      const currentXP = userData.xp || 0
+
+      // Check if already completed this task for this plant today
+      const taskKey = `${plantId}_${taskType}`
+      if (tasksCompletedToday.includes(taskKey)) {
+        console.log('Task already completed today, no XP awarded')
+        return { xpEarned: 0, totalXP: currentXP, levelUp: null, alreadyCompleted: true }
+      }
+
+      // Add task to completed list
+      tasksCompletedToday.push(taskKey)
+
+      // Calculate XP reward
+      let xpEarned = TASK_XP_REWARDS[taskType] || 0
+
+      // Check if all three tasks completed for this plant today
+      const waterCompleted = tasksCompletedToday.includes(`${plantId}_water`)
+      const fertilizeCompleted = tasksCompletedToday.includes(`${plantId}_fertilize`)
+      const maintenanceCompleted = tasksCompletedToday.includes(`${plantId}_maintenance`)
+
+      const allThreeCompleted = waterCompleted && fertilizeCompleted && maintenanceCompleted
+
+      // Award bonus if all three tasks completed (and not already awarded)
+      const bonusKey = `${plantId}_bonus`
+      if (allThreeCompleted && !tasksCompletedToday.includes(bonusKey)) {
+        xpEarned += TASK_XP_REWARDS.allThree
+        tasksCompletedToday.push(bonusKey)
+      }
+
+      const newTotalXP = currentXP + xpEarned
+
+      // Update user document
+      transaction.update(userRef, {
+        xp: newTotalXP,
+        tasksCompletedToday,
+      })
+
+      return {
+        xpEarned,
+        totalXP: newTotalXP,
+        levelUp: null, // Will check after transaction
+        allThreeCompleted,
+      }
+    })
+
+    // Check for level up outside transaction
+    if (result.xpEarned > 0) {
+      const levelUp = await checkLevelUp(userId, result.totalXP)
+      result.levelUp = levelUp
+    }
+
+    return result
+  } catch (error) {
+    console.error('Error handling task completion:', error)
+    return { xpEarned: 0, totalXP: 0, levelUp: null, error: error.message }
+  }
+}
+
+/**
+ * Reset daily tasks for a user (called at midnight or on first action of new day)
+ */
+export async function resetDailyTasks(userId) {
+  try {
+    const userRef = doc(db, 'users', userId)
+    await setDoc(
+      userRef,
+      {
+        tasksCompletedToday: [],
+        lastTaskResetDate: serverTimestamp(),
+      },
+      { merge: true },
+    )
+    console.log('Daily tasks reset for user:', userId)
+    return true
+  } catch (error) {
+    console.error('Error resetting daily tasks:', error)
+    return false
+  }
+}
+
+/**
+ * Check if daily tasks need to be reset (called before task completion)
+ */
+export async function checkAndResetDailyTasks(userId) {
+  try {
+    const userRef = doc(db, 'users', userId)
+    const userSnap = await getDoc(userRef)
+
+    if (!userSnap.exists()) return false
+
+    const userData = userSnap.data()
+    const lastResetDate = userData.lastTaskResetDate?.toDate()
+
+    if (!lastResetDate) {
+      // Never reset before, do it now
+      await resetDailyTasks(userId)
+      return true
+    }
+
+    // Check if it's a new day
+    const now = new Date()
+    const lastReset = new Date(lastResetDate)
+
+    // Compare dates (ignore time)
+    const isNewDay =
+      now.getFullYear() !== lastReset.getFullYear() ||
+      now.getMonth() !== lastReset.getMonth() ||
+      now.getDate() !== lastReset.getDate()
+
+    if (isNewDay) {
+      await resetDailyTasks(userId)
+      return true
+    }
+
+    return false
+  } catch (error) {
+    console.error('Error checking daily reset:', error)
+    return false
   }
 }

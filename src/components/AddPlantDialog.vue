@@ -416,7 +416,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import { collection, addDoc, doc, updateDoc, increment } from 'firebase/firestore'
+import { collection, addDoc, doc, updateDoc, increment, getDoc } from 'firebase/firestore'
 import { handlePlantAdded, handlePlantPhotographed } from '@/utils/achievements'
 import { logAchievementUnlocked } from '@/services/activityService'
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
@@ -834,17 +834,23 @@ const savePlant = async () => {
         console.error('Failed to log activity:', err)
       }
 
-      // Increment user's plant count first so achievement sync reads the updated value
+      // Get current plant count BEFORE incrementing
+      let currentPlantCount = 0
       try {
         const userRef = doc(db, 'users', user.value.uid)
+        const userSnap = await getDoc(userRef)
+        currentPlantCount = userSnap.exists() ? userSnap.data().numberOfPlants || 0 : 0
+
+        // Now increment
         await updateDoc(userRef, { numberOfPlants: increment(1) })
       } catch (err) {
         console.error('Failed to increment user.numberOfPlants:', err)
       }
 
-      // Update achievements for this user (transaction-safe)
+      // Update achievements for this user - pass the NEW count (current + 1)
+      let allUnlocks = []
       try {
-        const plantUnlocks = await handlePlantAdded(user.value.uid, docRef.id)
+        const plantUnlocks = await handlePlantAdded(user.value.uid, currentPlantCount + 1)
 
         // If plant has a photo, also check photo achievement
         let photoUnlock = null
@@ -853,7 +859,7 @@ const savePlant = async () => {
         }
 
         // Log any unlocked achievements
-        const allUnlocks = [...(plantUnlocks || [])]
+        allUnlocks = [...(plantUnlocks || [])]
         if (photoUnlock) allUnlocks.push(photoUnlock)
 
         for (const unlock of allUnlocks) {
@@ -865,7 +871,7 @@ const savePlant = async () => {
         console.error('Failed to update achievements after adding plant:', err)
       }
 
-      emit('plant-added', { id: docRef.id, ...plantData })
+      emit('plant-added', { plant: { id: docRef.id, ...plantData }, achievements: allUnlocks })
     }
 
     closeDialog()

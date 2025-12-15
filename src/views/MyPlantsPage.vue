@@ -13,6 +13,16 @@
           </p>
         </div>
       </div>
+      <v-btn
+        color="primary"
+        prepend-icon="mdi-plus"
+        rounded="lg"
+        size="default"
+        @click="showAddDialog = true"
+        class="add-plant-btn"
+      >
+        <span class="add-plant-text">Add Plant</span>
+      </v-btn>
     </div>
 
     <!-- Search -->
@@ -143,6 +153,19 @@
       </v-card>
     </v-dialog>
 
+    <!-- Achievement Unlock Dialog -->
+    <AchievementUnlockDialog
+      v-model="showAchievementUnlockDialog"
+      :achievement="unlockedAchievementData"
+      @update:model-value="
+        (val) => {
+          if (!val && achievementQueue.length > 0) {
+            showNextAchievement()
+          }
+        }
+      "
+    />
+
     <!-- Achievement Toast -->
     <AchievementToast
       v-model="showAchievementToast"
@@ -178,6 +201,7 @@ import { auth, db, storage } from '@/firebase'
 import AddPlantDialog from '@/components/AddPlantDialog.vue'
 import EditPlantDialog from '@/components/EditPlantDialog.vue'
 import AchievementToast from '@/components/AchievementToast.vue'
+import AchievementUnlockDialog from '@/components/AchievementUnlockDialog.vue'
 
 const router = useRouter()
 
@@ -192,10 +216,12 @@ const plantToDelete = ref(null)
 const plantToEdit = ref(null)
 const showEditDialog = ref(false)
 
-// Achievement toast
+// Achievement toast and dialog
 const showAchievementToast = ref(false)
 const unlockedAchievement = ref(null)
 const achievementQueue = ref([])
+const showAchievementUnlockDialog = ref(false)
+const unlockedAchievementData = ref(null)
 
 // Show next achievement in queue
 const showNextAchievement = () => {
@@ -443,9 +469,23 @@ const confirmDelete = async () => {
   }
 }
 
-const handlePlantAdded = (plant) => {
+const handlePlantAdded = ({ plant, achievements }) => {
   showSuccess.value = true
   successMessage.value = `${plant.nickname} added successfully!`
+
+  // Handle achievement unlocks - only show if truly new
+  // The achievements array already contains only newly unlocked achievements
+  // from handlePlantAdded in achievements.js, which checks wasFirstUnlocked
+  if (achievements && achievements.length > 0) {
+    // Show first achievement in dialog
+    unlockedAchievementData.value = achievements[0]
+    showAchievementUnlockDialog.value = true
+
+    // Queue remaining achievements for toast
+    if (achievements.length > 1) {
+      achievementQueue.value.push(...achievements.slice(1))
+    }
+  }
 } // Initialize data
 onMounted(() => {
   onAuthStateChanged(auth, (user) => {
@@ -507,6 +547,17 @@ onMounted(() => {
   font-size: 0.9375rem;
   color: rgba(var(--v-theme-on-surface), 0.6);
   margin: 4px 0 0 0;
+}
+
+.add-plant-btn {
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(var(--v-theme-primary), 0.25);
+  transition: all 0.3s ease;
+}
+
+.add-plant-btn:hover {
+  box-shadow: 0 4px 16px rgba(var(--v-theme-primary), 0.35);
+  transform: translateY(-2px);
 }
 
 .add-btn {
@@ -745,9 +796,14 @@ onMounted(() => {
 /* Responsive */
 @media (max-width: 768px) {
   .page-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 16px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .add-plant-btn {
+    margin-left: auto;
   }
 
   .plants-grid {
@@ -760,6 +816,21 @@ onMounted(() => {
   .plants-container {
     padding-left: 16px;
     padding-right: 16px;
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .add-plant-btn {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .add-plant-text {
+    display: inline;
   }
 
   .header-icon-wrapper {

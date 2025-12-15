@@ -312,6 +312,10 @@ const createUserProfile = async (user, displayName = null, isNewUser = false) =>
       photoURL: user.photoURL || null,
       numberOfPlants: 0,
       lastLogin: serverTimestamp(),
+      xp: 0,
+      level: 1,
+      tasksCompletedToday: [],
+      lastTaskResetDate: serverTimestamp(),
     }
 
     // Only set onboardingCompleted for new users

@@ -256,6 +256,15 @@
       :achievement="unlockedAchievement"
       @closed="onAchievementToastClosed"
     />
+
+    <!-- Level Up Dialog -->
+    <LevelUpDialog v-model="showLevelUpDialog" :levelUpData="levelUpData" />
+
+    <!-- Achievement Unlock Dialog -->
+    <AchievementUnlockDialog
+      v-model="showAchievementUnlockDialog"
+      :achievement="unlockedAchievementData"
+    />
   </div>
 </template>
 
@@ -264,7 +273,12 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { onAuthStateChanged } from 'firebase/auth'
 import { collection, query, where, onSnapshot, doc, updateDoc, getDoc } from 'firebase/firestore'
 import { auth, db } from '@/firebase'
-import { handlePlantWatered, handleAllPlantsHealthy } from '@/utils/achievements'
+import {
+  handlePlantWatered,
+  handleAllPlantsHealthy,
+  handleTaskCompleted,
+  checkAndResetDailyTasks,
+} from '@/utils/achievements'
 import { logPlantWatered, logAchievementUnlocked } from '@/services/activityService'
 import { getWeatherForCurrentLocation } from '@/services/weatherService'
 import {
@@ -276,6 +290,8 @@ import {
 import WeatherWidget from '@/components/WeatherWidget.vue'
 import CalendarWidget from '@/components/CalendarWidget.vue'
 import AchievementToast from '@/components/AchievementToast.vue'
+import LevelUpDialog from '@/components/LevelUpDialog.vue'
+import AchievementUnlockDialog from '@/components/AchievementUnlockDialog.vue'
 
 // Helper functions for greeting
 const getGreeting = () => {
@@ -303,6 +319,14 @@ const plants = ref([])
 const showAchievementToast = ref(false)
 const unlockedAchievement = ref(null)
 const achievementQueue = ref([])
+
+// Level up dialog
+const showLevelUpDialog = ref(false)
+const levelUpData = ref(null)
+
+// Achievement unlock dialog
+const showAchievementUnlockDialog = ref(false)
+const unlockedAchievementData = ref(null)
 
 // Weather data
 const weatherData = ref(null)
@@ -809,6 +833,12 @@ const completePlantWatering = async (plant) => {
     // Log activity and update achievements
     const uid = auth.currentUser?.uid
     if (uid) {
+      // Check and reset daily tasks if needed
+      await checkAndResetDailyTasks(uid)
+
+      // Award XP for watering task
+      const xpResult = await handleTaskCompleted(uid, 'water', plant.id)
+
       // Log the watering activity
       logPlantWatered(uid, plant).catch((err) => {
         console.error('Failed to log watering activity:', err)
@@ -830,21 +860,41 @@ const completePlantWatering = async (plant) => {
       const allUnlocks = [...(wateringUnlocks || [])]
       if (greenThumbUnlock) allUnlocks.push(greenThumbUnlock)
 
-      // Log and show toasts for unlocked achievements
+      // Log and show achievements for unlocked achievements
       for (const unlock of allUnlocks) {
         logAchievementUnlocked(uid, unlock).catch((err) => {
           console.error('Failed to log achievement unlock:', err)
         })
       }
 
-      // Queue achievement toasts
+      // Show achievement unlock dialog for unlocked achievements (one at a time)
       if (allUnlocks.length > 0) {
-        queueAchievements(allUnlocks)
+        unlockedAchievementData.value = allUnlocks[0]
+        showAchievementUnlockDialog.value = true
+        // Queue remaining achievements if any
+        if (allUnlocks.length > 1) {
+          queueAchievements(allUnlocks.slice(1))
+        }
       }
+
+      // Show level up dialog if leveled up
+      if (xpResult.levelUp) {
+        showLevelUpDialog.value = true
+        levelUpData.value = xpResult.levelUp
+      }
+
+      // Show XP earned message
+      if (xpResult.xpEarned > 0) {
+        const bonusMsg = xpResult.allThreeCompleted ? ' (All tasks bonus!)' : ''
+        successMessage.value = `${plant.nickname} watered! 💧 +${xpResult.xpEarned} XP${bonusMsg}`
+      } else {
+        successMessage.value = `${plant.nickname} watered! 💧`
+      }
+    } else {
+      successMessage.value = `${plant.nickname} watered! 💧`
     }
 
     showSuccess.value = true
-    successMessage.value = `${plant.nickname} watered! 💧`
   } catch (error) {
     console.error('Error updating watering:', error)
   }
@@ -870,8 +920,31 @@ const completeFertilizing = async (plant) => {
     await updateDoc(plantRef, {
       lastFertilized: new Date(),
     })
+
+    // Award XP for fertilizing task
+    const uid = auth.currentUser?.uid
+    if (uid) {
+      await checkAndResetDailyTasks(uid)
+      const xpResult = await handleTaskCompleted(uid, 'fertilize', plant.id)
+
+      // Show level up dialog if leveled up
+      if (xpResult.levelUp) {
+        showLevelUpDialog.value = true
+        levelUpData.value = xpResult.levelUp
+      }
+
+      // Show XP earned message
+      if (xpResult.xpEarned > 0) {
+        const bonusMsg = xpResult.allThreeCompleted ? ' (All tasks bonus!)' : ''
+        successMessage.value = `${plant.nickname} fertilized! 🌱 +${xpResult.xpEarned} XP${bonusMsg}`
+      } else {
+        successMessage.value = `${plant.nickname} fertilized! 🌱`
+      }
+    } else {
+      successMessage.value = `${plant.nickname} fertilized! 🌱`
+    }
+
     showSuccess.value = true
-    successMessage.value = `${plant.nickname} fertilized! 🌱`
   } catch (error) {
     console.error('Error fertilizing plant:', error)
   }
@@ -884,8 +957,31 @@ const completeMaintenance = async (plant) => {
     await updateDoc(plantRef, {
       lastMaintenance: new Date(),
     })
+
+    // Award XP for maintenance task
+    const uid = auth.currentUser?.uid
+    if (uid) {
+      await checkAndResetDailyTasks(uid)
+      const xpResult = await handleTaskCompleted(uid, 'maintenance', plant.id)
+
+      // Show level up dialog if leveled up
+      if (xpResult.levelUp) {
+        showLevelUpDialog.value = true
+        levelUpData.value = xpResult.levelUp
+      }
+
+      // Show XP earned message
+      if (xpResult.xpEarned > 0) {
+        const bonusMsg = xpResult.allThreeCompleted ? ' (All tasks bonus!)' : ''
+        successMessage.value = `${plant.nickname} maintenance complete! ✂️ +${xpResult.xpEarned} XP${bonusMsg}`
+      } else {
+        successMessage.value = `${plant.nickname} maintenance complete! ✂️`
+      }
+    } else {
+      successMessage.value = `${plant.nickname} maintenance complete! ✂️`
+    }
+
     showSuccess.value = true
-    successMessage.value = `${plant.nickname} maintenance complete! ✂️`
   } catch (error) {
     console.error('Error completing maintenance:', error)
   }

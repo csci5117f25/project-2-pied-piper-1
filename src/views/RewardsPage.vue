@@ -56,18 +56,26 @@
       <div class="level-progress">
         <div class="progress-header">
           <span>Level {{ currentLevel.level }}</span>
-          <span>{{ totalXP }} / {{ currentLevel.xpRequired }} XP</span>
+          <span v-if="!levelProgress.isMaxLevel">
+            {{ levelProgress.xpInCurrentLevel }} / {{ levelProgress.xpNeededForNext }} XP
+          </span>
+          <span v-else>Max Level Reached!</span>
         </div>
         <div class="progress-bar">
-          <div
-            class="progress-fill"
-            :style="{ width: `${(totalXP / currentLevel.xpRequired) * 100}%` }"
-          ></div>
+          <div class="progress-fill" :style="{ width: `${levelProgress.progress}%` }"></div>
         </div>
-        <p class="next-level-hint">
-          Next: {{ nextLevel.name }} ({{ Math.max(0, currentLevel.xpRequired - totalXP) }} XP
-          needed)
+        <p class="next-level-hint" v-if="!levelProgress.isMaxLevel">
+          Next: {{ nextLevel.name }} ({{ levelProgress.xpToNextLevel }} XP needed)
         </p>
+        <p class="next-level-hint" v-else>
+          You've reached the highest level! Keep caring for your plants!
+        </p>
+      </div>
+
+      <!-- Today's Task XP -->
+      <div class="today-xp" v-if="todayTasksXP > 0">
+        <v-icon color="warning" size="20">mdi-star</v-icon>
+        <span>+{{ todayTasksXP }} XP earned from tasks today</span>
       </div>
     </div>
 
@@ -82,6 +90,7 @@
         v-for="achievement in achievements"
         :key="achievement.id"
         :class="['achievement-card', { 'achievement-card--unlocked': achievement.unlocked }]"
+        @click="openAchievementDetail(achievement)"
       >
         <!-- Achievement Icon -->
         <div class="achievement-icon-wrapper">
@@ -153,15 +162,34 @@
         </div>
       </div>
     </div>
+
+    <!-- Achievement Detail Dialog -->
+    <AchievementDetailDialog v-model="showAchievementDetail" :achievement="selectedAchievement" />
   </v-container>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import AchievementDetailDialog from '@/components/AchievementDetailDialog.vue'
 import { onAuthStateChanged } from 'firebase/auth'
-import { collection, getDocs, query, orderBy, limit, where, onSnapshot } from 'firebase/firestore'
+import {
+  collection,
+  getDocs,
+  query,
+  orderBy,
+  limit,
+  where,
+  onSnapshot,
+  doc,
+  getDoc,
+} from 'firebase/firestore'
 import { auth, db } from '@/firebase'
-import { checkDailyAchievementReset, syncAllAchievements } from '@/utils/achievements'
+import {
+  checkDailyAchievementReset,
+  syncAllAchievements,
+  LEVEL_THRESHOLDS,
+  getLevelProgress,
+} from '@/utils/achievements'
 
 // User stats
 const userStats = ref({
@@ -172,52 +200,30 @@ const userStats = ref({
   totalXP: 0,
 })
 
-// Level system
-const levels = [
-  {
-    level: 1,
-    name: 'Seed Starter',
-    description: 'Just beginning your plant journey',
-    xpRequired: 100,
-    icon: 'mdi-seed',
-  },
-  {
-    level: 2,
-    name: 'Green Thumb',
-    description: 'Getting the hang of plant care',
-    xpRequired: 250,
-    icon: 'mdi-hand',
-  },
-  {
-    level: 3,
-    name: 'Plant Parent',
-    description: 'Caring for multiple plants',
-    xpRequired: 500,
-    icon: 'mdi-sprout',
-  },
-  {
-    level: 4,
-    name: 'Garden Guardian',
-    description: 'Master of plant care',
-    xpRequired: 1000,
-    icon: 'mdi-leaf',
-  },
-  {
-    level: 5,
-    name: 'Plant Whisperer',
-    description: 'Expert plant caretaker',
-    xpRequired: 2000,
-    icon: 'mdi-flower',
-  },
-]
+// User XP from database
+const userXP = ref(0)
+const userLevel = ref(1)
+const todayTasksXP = ref(0)
 
-// Calculate total XP from all unlocked achievements
-const totalXP = computed(() => {
-  return achievements.value.filter((a) => a.unlocked).reduce((sum, a) => sum + (a.xpReward || 0), 0)
-})
+// Achievement detail dialog
+const showAchievementDetail = ref(false)
+const selectedAchievement = ref(null)
+
+// Function to open achievement detail
+const openAchievementDetail = (achievement) => {
+  selectedAchievement.value = achievement
+  showAchievementDetail.value = true
+}
+
+// Use imported level thresholds
+const levels = LEVEL_THRESHOLDS
+
+// Total XP now comes from user document (includes task XP)
+const totalXP = computed(() => userXP.value)
 
 const currentLevel = computed(() => {
-  let level = levels[0]
+  const levelInfo = levels.find((l) => l.level === userLevel.value)
+  return levelInfo || levels[0]
   for (const l of levels) {
     if (totalXP.value >= l.xpRequired) {
       level = l
@@ -232,6 +238,9 @@ const nextLevel = computed(() => {
   const currentIndex = levels.findIndex((l) => l.level === currentLevel.value.level)
   return currentIndex < levels.length - 1 ? levels[currentIndex + 1] : currentLevel.value
 })
+
+// Calculate level progress using utility function
+const levelProgress = computed(() => getLevelProgress(totalXP.value))
 
 // Achievements
 const achievements = ref([
@@ -340,6 +349,21 @@ const formatTime = (date) => {
 onMounted(() => {
   onAuthStateChanged(auth, async (user) => {
     if (user) {
+      // Load user XP and level
+      const userRef = doc(db, 'users', user.uid)
+      const userSnap = await getDoc(userRef)
+      if (userSnap.exists()) {
+        const userData = userSnap.data()
+        userXP.value = userData.xp || 0
+        userLevel.value = userData.level || 1
+
+        // Calculate today's task XP
+        const tasksToday = userData.tasksCompletedToday || []
+        // Count non-bonus tasks (bonus tasks end with '_bonus')
+        const taskCount = tasksToday.filter((t) => !t.endsWith('_bonus')).length
+        todayTasksXP.value = taskCount * 30 // Approximate XP per task
+      }
+
       // First, sync all achievements to ensure accurate progress
       await syncAllAchievements(user.uid)
 
@@ -668,7 +692,26 @@ const loadRecentActivities = async (userId) => {
   color: rgba(var(--v-theme-on-surface), 0.5);
   margin: 12px 0 0 0;
 }
+.today-xp {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: linear-gradient(
+    135deg,
+    rgba(var(--v-theme-warning), 0.1),
+    rgba(var(--v-theme-warning), 0.05)
+  );
+  border-radius: 12px;
+  margin-top: 16px;
+  border: 1px solid rgba(var(--v-theme-warning), 0.2);
+}
 
+.today-xp span {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: rgb(var(--v-theme-warning));
+}
 /* Section Header */
 .section-header {
   display: flex;
@@ -700,11 +743,13 @@ const loadRecentActivities = async (userId) => {
   padding: 24px 20px;
   text-align: center;
   transition: all 0.3s ease;
+  cursor: pointer;
 }
 
 .achievement-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.1);
+  border-color: rgba(var(--v-theme-primary), 0.3);
 }
 
 .achievement-card--unlocked {
