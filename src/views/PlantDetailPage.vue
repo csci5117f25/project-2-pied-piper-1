@@ -814,7 +814,9 @@ const getNextFertilizerDate = () => {
     const lastDate = plant.value.lastFertilized.toDate
       ? plant.value.lastFertilized.toDate()
       : new Date(plant.value.lastFertilized)
-    nextDate = new Date(lastDate.getTime() + weeks * 7 * 24 * 60 * 60 * 1000)
+    lastDate.setHours(0, 0, 0, 0)
+    nextDate = new Date(lastDate)
+    nextDate.setDate(nextDate.getDate() + weeks * 7)
   } else {
     nextDate = new Date() // Due now if never fertilized
   }
@@ -838,7 +840,9 @@ const getNextMaintenanceDate = () => {
     const lastDate = plant.value.lastMaintenance.toDate
       ? plant.value.lastMaintenance.toDate()
       : new Date(plant.value.lastMaintenance)
-    nextDate = new Date(lastDate.getTime() + weeks * 7 * 24 * 60 * 60 * 1000)
+    lastDate.setHours(0, 0, 0, 0)
+    nextDate = new Date(lastDate)
+    nextDate.setDate(nextDate.getDate() + weeks * 7)
   } else {
     nextDate = new Date() // Due now if never maintained
   }

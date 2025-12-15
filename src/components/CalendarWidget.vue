@@ -254,8 +254,14 @@ const needsFertilizingOnDate = (plant, targetDate) => {
     : new Date(plant.lastFertilized)
   lastDate.setHours(0, 0, 0, 0)
 
-  const daysSince = Math.floor((target.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24))
-  return daysSince >= weeks * 7
+  // Calculate the exact next due date using the same method as PlantDetailPage
+  const nextDueDate = new Date(lastDate)
+  const totalDays = weeks * 7
+  nextDueDate.setDate(lastDate.getDate() + totalDays)
+  nextDueDate.setHours(0, 0, 0, 0)
+
+  // Check if target date matches the next due date exactly
+  return target.getTime() === nextDueDate.getTime()
 }
 
 // Check if a plant needs maintenance on a specific date
@@ -284,8 +290,14 @@ const needsMaintenanceOnDate = (plant, targetDate) => {
     : new Date(plant.lastMaintenance)
   lastDate.setHours(0, 0, 0, 0)
 
-  const daysSince = Math.floor((target.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24))
-  return daysSince >= weeks * 7
+  // Calculate the exact next due date using the same method as PlantDetailPage
+  const nextDueDate = new Date(lastDate)
+  const totalDays = weeks * 7
+  nextDueDate.setDate(lastDate.getDate() + totalDays)
+  nextDueDate.setHours(0, 0, 0, 0)
+
+  // Check if target date matches the next due date exactly
+  return target.getTime() === nextDueDate.getTime()
 }
 
 // Get fertilizer count for a date

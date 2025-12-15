@@ -959,8 +959,10 @@ const completeFertilizing = async (plant) => {
 const completeMaintenance = async (plant) => {
   try {
     const plantRef = doc(db, 'plants', plant.id)
+    const now = new Date()
+    now.setHours(0, 0, 0, 0)
     await updateDoc(plantRef, {
-      lastMaintenance: new Date(),
+      lastMaintenance: now,
     })
 
     // Award XP for maintenance task
