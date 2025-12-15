@@ -338,10 +338,10 @@
     </v-dialog>
 
     <!-- Time Picker Dialog -->
-    <v-dialog v-model="showTimeDialog" max-width="300">
+    <v-dialog v-model="showTimeDialog" max-width="400">
       <v-card>
         <v-card-title>Set Reminder Time</v-card-title>
-        <v-card-text>
+        <v-card-text class="pa-0">
           <v-time-picker v-model="selectedTime" format="ampm" width="100%" />
         </v-card-text>
         <v-card-actions>
@@ -418,7 +418,7 @@ const showDeleteDialog = ref(false)
 const showSuccess = ref(false)
 const successMessage = ref('')
 const deleteConfirmation = ref('')
-const selectedTime = ref('9:00')
+const selectedTime = ref('11:00')
 const testingNotification = ref(false)
 
 // Settings
@@ -426,7 +426,7 @@ const settings = ref({
   notifications: true,
   location: true,
   darkMode: false,
-  reminderTime: '9:00 AM',
+  reminderTime: '11:00 AM',
   temperatureUnit: 'celsius',
 })
 
