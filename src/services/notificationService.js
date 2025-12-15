@@ -37,11 +37,11 @@ const NOTIFICATION_TEMPLATES = {
     { title: '✨ Growth Boost', body: 'Time to fertilize {plantName} for healthy growth!' },
   ],
   pruning: [
-    { title: '✂️ Grooming Time!', body: '{plantName} could use a trim! 🌿' },
-    { title: '🌱 Maintenance Alert', body: 'Time to prune {plantName}! ✨' },
-    { title: '🪴 Spa Day!', body: '{plantName} needs some grooming today!' },
-    { title: '💇 Trim Time!', body: 'Give {plantName} a fresh new look! ✂️' },
-    { title: '🌿 Shape Up!', body: 'Your {plantType} is ready for a haircut!' },
+    { title: '✂️ Maintenance Time!', body: '{plantName} needs some care! 🌿' },
+    { title: '🌱 Maintenance Alert', body: 'Time to check on {plantName}! ✨' },
+    { title: '🪴 Spa Day!', body: '{plantName} needs some maintenance today!' },
+    { title: '🛠️ Care Check!', body: 'Give {plantName} some TLC! ✂️' },
+    { title: '🌿 Maintenance Due!', body: 'Your {plantType} is ready for upkeep!' },
   ],
 }
 
@@ -228,18 +228,68 @@ export function calculateNextNotificationTime(plant, reminderType) {
     return nextDate
   }
 
-  if (reminderType === 'fertilizer' && plant.needsFertilizer) {
-    // Monthly fertilizer reminder
-    const nextDate = new Date(now)
-    nextDate.setMonth(nextDate.getMonth() + 1)
+  if (
+    reminderType === 'fertilizer' &&
+    plant.fertilizerFrequency &&
+    plant.fertilizerFrequency !== 'never'
+  ) {
+    // Calculate based on fertilizer frequency
+    const lastFertilized = plant.lastFertilized?.toDate?.() || plant.lastFertilized || now
+    let weeksToAdd = 4 // default monthly
+
+    switch (plant.fertilizerFrequency) {
+      case 'monthly':
+        weeksToAdd = 4
+        break
+      case 'bimonthly':
+        weeksToAdd = 8
+        break
+      case 'quarterly':
+        weeksToAdd = 13
+        break
+      case 'seasonal':
+        weeksToAdd = 16
+        break
+      case 'custom':
+        weeksToAdd = plant.customFertilizerWeeks || 4
+        break
+    }
+
+    const nextDate = new Date(lastFertilized)
+    nextDate.setDate(nextDate.getDate() + weeksToAdd * 7)
     nextDate.setHours(10, 0, 0, 0)
     return nextDate
   }
 
-  if (reminderType === 'pruning' && plant.needsPruning) {
-    // Quarterly pruning reminder
-    const nextDate = new Date(now)
-    nextDate.setMonth(nextDate.getMonth() + 3)
+  if (
+    reminderType === 'pruning' &&
+    plant.maintenanceFrequency &&
+    plant.maintenanceFrequency !== 'never'
+  ) {
+    // Calculate based on maintenance frequency
+    const lastMaintenance = plant.lastMaintenance?.toDate?.() || plant.lastMaintenance || now
+    let weeksToAdd = 13 // default quarterly
+
+    switch (plant.maintenanceFrequency) {
+      case 'monthly':
+        weeksToAdd = 4
+        break
+      case 'quarterly':
+        weeksToAdd = 13
+        break
+      case 'biannually':
+        weeksToAdd = 26
+        break
+      case 'annually':
+        weeksToAdd = 52
+        break
+      case 'custom':
+        weeksToAdd = plant.customMaintenanceWeeks || 12
+        break
+    }
+
+    const nextDate = new Date(lastMaintenance)
+    nextDate.setDate(nextDate.getDate() + weeksToAdd * 7)
     nextDate.setHours(14, 0, 0, 0)
     return nextDate
   }

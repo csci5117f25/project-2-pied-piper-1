@@ -127,6 +127,122 @@
           </div>
         </div>
       </div>
+
+      <!-- Plants Needing Fertilizer Section -->
+      <div v-if="plantsNeedingFertilizer.length > 0" class="section-spacing">
+        <div class="section-header">
+          <div class="section-title">
+            <v-icon class="section-icon" color="success">mdi-bottle-tonic</v-icon>
+            <span>{{ fertilizerSectionTitle }}</span>
+          </div>
+          <v-chip color="success" size="small" variant="tonal">
+            {{ plantsNeedingFertilizer.length }}
+            {{ plantsNeedingFertilizer.length === 1 ? 'plant' : 'plants' }}
+          </v-chip>
+        </div>
+
+        <div class="plants-grid">
+          <div
+            v-for="plant in plantsNeedingFertilizer"
+            :key="'fert-' + plant.id"
+            class="plant-card fertilizer-card"
+            @click="$router.push(`/app/plants/${plant.id}`)"
+          >
+            <div class="plant-card-inner">
+              <div class="plant-image-wrapper">
+                <img
+                  v-if="plant.photoURL"
+                  :src="plant.photoURL"
+                  :alt="plant.nickname"
+                  class="plant-image"
+                />
+                <div v-else class="plant-placeholder">
+                  <v-icon size="32" color="success">mdi-leaf</v-icon>
+                </div>
+              </div>
+              <div class="plant-info">
+                <h4 class="plant-name">{{ plant.nickname }}</h4>
+                <p class="plant-type">{{ plant.plantType }}</p>
+                <div class="plant-location text-success">
+                  <v-icon size="12" color="success">mdi-bottle-tonic</v-icon>
+                  Fertilizer due
+                </div>
+              </div>
+              <div class="plant-actions" @click.stop>
+                <v-btn
+                  @click="completeFertilizing(plant)"
+                  icon
+                  size="36"
+                  color="success"
+                  variant="flat"
+                  :disabled="!isSelectedDateToday"
+                  class="action-btn"
+                >
+                  <v-icon size="18">mdi-check</v-icon>
+                </v-btn>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Plants Needing Maintenance Section -->
+      <div v-if="plantsNeedingMaintenance.length > 0" class="section-spacing">
+        <div class="section-header">
+          <div class="section-title">
+            <v-icon class="section-icon" color="amber">mdi-content-cut</v-icon>
+            <span>{{ maintenanceSectionTitle }}</span>
+          </div>
+          <v-chip color="amber" size="small" variant="tonal">
+            {{ plantsNeedingMaintenance.length }}
+            {{ plantsNeedingMaintenance.length === 1 ? 'plant' : 'plants' }}
+          </v-chip>
+        </div>
+
+        <div class="plants-grid">
+          <div
+            v-for="plant in plantsNeedingMaintenance"
+            :key="'maint-' + plant.id"
+            class="plant-card maintenance-card"
+            @click="$router.push(`/app/plants/${plant.id}`)"
+          >
+            <div class="plant-card-inner">
+              <div class="plant-image-wrapper">
+                <img
+                  v-if="plant.photoURL"
+                  :src="plant.photoURL"
+                  :alt="plant.nickname"
+                  class="plant-image"
+                />
+                <div v-else class="plant-placeholder">
+                  <v-icon size="32" color="amber">mdi-leaf</v-icon>
+                </div>
+              </div>
+              <div class="plant-info">
+                <h4 class="plant-name">{{ plant.nickname }}</h4>
+                <p class="plant-type">{{ plant.plantType }}</p>
+                <div class="plant-location text-amber">
+                  <v-icon size="12" color="amber">mdi-content-cut</v-icon>
+                  Maintenance due
+                </div>
+              </div>
+              <div class="plant-actions" @click.stop>
+                <v-btn
+                  @click="completeMaintenance(plant)"
+                  icon
+                  size="36"
+                  color="amber"
+                  variant="flat"
+                  :disabled="!isSelectedDateToday"
+                  class="action-btn"
+                >
+                  <v-icon size="18">mdi-check</v-icon>
+                </v-btn>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </v-container>
 
     <!-- Success Snackbar -->
@@ -320,6 +436,30 @@ const sectionTitle = computed(() => {
   })}`
 })
 
+// Fertilizer section title based on selected date
+const fertilizerSectionTitle = computed(() => {
+  if (isSelectedDateToday.value) {
+    return 'Fertilize Today'
+  }
+  const date = new Date(selectedDate.value)
+  return `Fertilize on ${date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  })}`
+})
+
+// Maintenance section title based on selected date
+const maintenanceSectionTitle = computed(() => {
+  if (isSelectedDateToday.value) {
+    return 'Maintenance Today'
+  }
+  const date = new Date(selectedDate.value)
+  return `Maintenance on ${date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  })}`
+})
+
 // Empty state text based on selected date
 const selectedDateText = computed(() => {
   if (isSelectedDateToday.value) {
@@ -337,6 +477,110 @@ const selectedDateText = computed(() => {
 const plantsToday = computed(() => {
   const targetDate = selectedDate.value
   return plants.value.filter((plant) => needsWateringOnDate(plant, targetDate))
+})
+
+// Helper to get frequency in weeks
+const getFrequencyInWeeks = (frequency, customWeeks, type) => {
+  if (frequency === 'custom') return customWeeks || (type === 'fertilizer' ? 4 : 12)
+
+  const frequencyMap = {
+    never: null,
+    monthly: 4,
+    bimonthly: 8,
+    quarterly: 13,
+    seasonal: 16,
+    biannually: 26,
+    annually: 52,
+  }
+  return frequencyMap[frequency] || null
+}
+
+// Check if a plant needs fertilizing on a specific date
+const needsFertilizingOnDate = (plant, targetDate) => {
+  if (!plant.fertilizerFrequency || plant.fertilizerFrequency === 'never') return false
+
+  const weeks = getFrequencyInWeeks(
+    plant.fertilizerFrequency,
+    plant.customFertilizerWeeks,
+    'fertilizer',
+  )
+  if (!weeks) return false
+
+  const daysInterval = weeks * 7
+  const target = new Date(targetDate)
+  target.setHours(0, 0, 0, 0)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const isToday = target.getTime() === today.getTime()
+
+  if (!plant.lastFertilized) {
+    // Never fertilized - show on today and future dates
+    return target >= today
+  }
+
+  const lastDate = plant.lastFertilized.toDate
+    ? plant.lastFertilized.toDate()
+    : new Date(plant.lastFertilized)
+  lastDate.setHours(0, 0, 0, 0)
+
+  const daysSince = Math.floor((target.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24))
+
+  // If overdue, show on today
+  if (isToday && daysSince >= daysInterval) {
+    return true
+  }
+  // Show on exact interval days
+  return daysSince >= daysInterval && daysSince % daysInterval === 0
+}
+
+// Check if a plant needs maintenance on a specific date
+const needsMaintenanceOnDate = (plant, targetDate) => {
+  if (!plant.maintenanceFrequency || plant.maintenanceFrequency === 'never') return false
+
+  const weeks = getFrequencyInWeeks(
+    plant.maintenanceFrequency,
+    plant.customMaintenanceWeeks,
+    'maintenance',
+  )
+  if (!weeks) return false
+
+  const daysInterval = weeks * 7
+  const target = new Date(targetDate)
+  target.setHours(0, 0, 0, 0)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const isToday = target.getTime() === today.getTime()
+
+  if (!plant.lastMaintenance) {
+    // Never maintained - show on today and future dates
+    return target >= today
+  }
+
+  const lastDate = plant.lastMaintenance.toDate
+    ? plant.lastMaintenance.toDate()
+    : new Date(plant.lastMaintenance)
+  lastDate.setHours(0, 0, 0, 0)
+
+  const daysSince = Math.floor((target.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24))
+
+  // If overdue, show on today
+  if (isToday && daysSince >= daysInterval) {
+    return true
+  }
+  // Show on exact interval days
+  return daysSince >= daysInterval && daysSince % daysInterval === 0
+}
+
+// Plants that need fertilizing on selected date
+const plantsNeedingFertilizer = computed(() => {
+  const targetDate = selectedDate.value
+  return plants.value.filter((plant) => needsFertilizingOnDate(plant, targetDate))
+})
+
+// Plants that need maintenance on selected date
+const plantsNeedingMaintenance = computed(() => {
+  const targetDate = selectedDate.value
+  return plants.value.filter((plant) => needsMaintenanceOnDate(plant, targetDate))
 })
 
 // Fetch weather data
@@ -616,6 +860,34 @@ const skipPlantWatering = async (plant) => {
     successMessage.value = `Watering skipped for ${plant.nickname}`
   } catch (error) {
     console.error('Error skipping watering:', error)
+  }
+}
+
+// Fertilizer action
+const completeFertilizing = async (plant) => {
+  try {
+    const plantRef = doc(db, 'plants', plant.id)
+    await updateDoc(plantRef, {
+      lastFertilized: new Date(),
+    })
+    showSuccess.value = true
+    successMessage.value = `${plant.nickname} fertilized! 🌱`
+  } catch (error) {
+    console.error('Error fertilizing plant:', error)
+  }
+}
+
+// Maintenance action
+const completeMaintenance = async (plant) => {
+  try {
+    const plantRef = doc(db, 'plants', plant.id)
+    await updateDoc(plantRef, {
+      lastMaintenance: new Date(),
+    })
+    showSuccess.value = true
+    successMessage.value = `${plant.nickname} maintenance complete! ✂️`
+  } catch (error) {
+    console.error('Error completing maintenance:', error)
   }
 }
 </script>

@@ -45,13 +45,30 @@
         :class="{
           'week-day--today': day.isToday,
           'week-day--selected': day.isSelected,
-          'week-day--has-plants': day.plantCount > 0,
+          'week-day--has-tasks': day.totalTasks > 0,
         }"
         @click="selectDay(day)"
       >
         <span class="week-day-name">{{ day.dayName }}</span>
         <span class="week-day-number">{{ day.dayNumber }}</span>
-        <span v-if="day.plantCount > 0" class="week-day-badge">{{ day.plantCount }}</span>
+        <!-- Task indicators -->
+        <div v-if="day.totalTasks > 0" class="task-indicators">
+          <span
+            v-if="day.waterCount > 0"
+            class="task-dot task-dot--water"
+            :title="`${day.waterCount} to water`"
+          ></span>
+          <span
+            v-if="day.fertilizerCount > 0"
+            class="task-dot task-dot--fertilizer"
+            :title="`${day.fertilizerCount} to fertilize`"
+          ></span>
+          <span
+            v-if="day.maintenanceCount > 0"
+            class="task-dot task-dot--maintenance"
+            :title="`${day.maintenanceCount} maintenance`"
+          ></span>
+        </div>
       </div>
     </div>
 
@@ -73,13 +90,18 @@
           :class="{
             'month-day--today': day.isToday,
             'month-day--selected': day.isSelected,
-            'month-day--has-plants': day.plantCount > 0,
+            'month-day--has-tasks': day.totalTasks > 0,
             'month-day--other': day.isOtherMonth,
           }"
           @click="selectDay(day)"
         >
           <span class="month-day-num">{{ day.dayNumber }}</span>
-          <span v-if="day.plantCount > 0" class="month-day-badge">{{ day.plantCount }}</span>
+          <!-- Task indicators -->
+          <div v-if="day.totalTasks > 0" class="task-indicators-month">
+            <span v-if="day.waterCount > 0" class="task-dot-sm task-dot--water"></span>
+            <span v-if="day.fertilizerCount > 0" class="task-dot-sm task-dot--fertilizer"></span>
+            <span v-if="day.maintenanceCount > 0" class="task-dot-sm task-dot--maintenance"></span>
+          </div>
         </div>
       </div>
     </div>
@@ -190,6 +212,122 @@ const getPlantCount = (date) => {
   return props.plants.filter((plant) => needsWateringOnDate(plant, date)).length
 }
 
+// Helper to get frequency in weeks
+const getFrequencyInWeeks = (frequency, customWeeks, type) => {
+  if (frequency === 'custom') return customWeeks || (type === 'fertilizer' ? 4 : 12)
+
+  const frequencyMap = {
+    never: null,
+    monthly: 4,
+    bimonthly: 8,
+    quarterly: 13,
+    seasonal: 16,
+    biannually: 26,
+    annually: 52,
+  }
+  return frequencyMap[frequency] || null
+}
+
+// Check if a plant needs fertilizing on a specific date
+const needsFertilizingOnDate = (plant, targetDate) => {
+  if (!plant.fertilizerFrequency || plant.fertilizerFrequency === 'never') return false
+
+  const weeks = getFrequencyInWeeks(
+    plant.fertilizerFrequency,
+    plant.customFertilizerWeeks,
+    'fertilizer',
+  )
+  if (!weeks) return false
+
+  const target = new Date(targetDate)
+  target.setHours(0, 0, 0, 0)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  // Only show on today or past dates that are due
+  if (target > today) return false
+
+  if (!plant.lastFertilized) return true // Never fertilized, due now
+
+  const lastDate = plant.lastFertilized.toDate
+    ? plant.lastFertilized.toDate()
+    : new Date(plant.lastFertilized)
+  lastDate.setHours(0, 0, 0, 0)
+
+  const daysSince = Math.floor((target.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24))
+  return daysSince >= weeks * 7
+}
+
+// Check if a plant needs maintenance on a specific date
+const needsMaintenanceOnDate = (plant, targetDate) => {
+  if (!plant.maintenanceFrequency || plant.maintenanceFrequency === 'never') return false
+
+  const weeks = getFrequencyInWeeks(
+    plant.maintenanceFrequency,
+    plant.customMaintenanceWeeks,
+    'maintenance',
+  )
+  if (!weeks) return false
+
+  const target = new Date(targetDate)
+  target.setHours(0, 0, 0, 0)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  // Only show on today or past dates that are due
+  if (target > today) return false
+
+  if (!plant.lastMaintenance) return true // Never maintained, due now
+
+  const lastDate = plant.lastMaintenance.toDate
+    ? plant.lastMaintenance.toDate()
+    : new Date(plant.lastMaintenance)
+  lastDate.setHours(0, 0, 0, 0)
+
+  const daysSince = Math.floor((target.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24))
+  return daysSince >= weeks * 7
+}
+
+// Get fertilizer count for a date
+const getFertilizerCount = (date) => {
+  if (!props.plants || props.plants.length === 0) return 0
+  return props.plants.filter((plant) => needsFertilizingOnDate(plant, date)).length
+}
+
+// Get maintenance count for a date
+const getMaintenanceCount = (date) => {
+  if (!props.plants || props.plants.length === 0) return 0
+  return props.plants.filter((plant) => needsMaintenanceOnDate(plant, date)).length
+}
+
+// Get all task counts for a date
+const getTaskCounts = (date) => {
+  const waterCount = getPlantCount(date)
+  const fertilizerCount = getFertilizerCount(date)
+  const maintenanceCount = getMaintenanceCount(date)
+
+  // Count unique plants that need any task (to avoid counting same plant multiple times)
+  const uniquePlants = new Set()
+  if (props.plants && props.plants.length > 0) {
+    props.plants.forEach((plant) => {
+      if (
+        needsWateringOnDate(plant, date) ||
+        needsFertilizingOnDate(plant, date) ||
+        needsMaintenanceOnDate(plant, date)
+      ) {
+        uniquePlants.add(plant.id)
+      }
+    })
+  }
+
+  return {
+    waterCount,
+    fertilizerCount,
+    maintenanceCount,
+    totalTasks: uniquePlants.size,
+  }
+}
+
 // Computed properties
 const weekDays = computed(() => {
   const days = []
@@ -199,6 +337,7 @@ const weekDays = computed(() => {
     const date = new Date(currentWeekStart.value)
     date.setDate(currentWeekStart.value.getDate() + i)
     const dateString = date.toISOString().split('T')[0]
+    const taskCounts = getTaskCounts(date)
 
     days.push({
       date: date,
@@ -213,7 +352,7 @@ const weekDays = computed(() => {
       }),
       isToday: date.toDateString() === today.toDateString(),
       isSelected: date.toDateString() === selectedDate.value.toDateString(),
-      plantCount: getPlantCount(date),
+      ...taskCounts,
     })
   }
 
@@ -260,6 +399,7 @@ const monthDays = computed(() => {
     const date = new Date(startDate)
     date.setDate(startDate.getDate() + i)
     const dateString = date.toISOString().split('T')[0]
+    const taskCounts = getTaskCounts(date)
 
     days.push({
       date: date,
@@ -274,7 +414,7 @@ const monthDays = computed(() => {
       isToday: date.toDateString() === today.toDateString(),
       isSelected: date.toDateString() === selectedDate.value.toDateString(),
       isOtherMonth: date.getMonth() !== currentMonth.value.getMonth(),
-      plantCount: getPlantCount(date),
+      ...taskCounts,
     })
   }
 
@@ -293,6 +433,7 @@ const goToToday = () => {
 
   // Emit day-selected event with today's day info
   const todayString = today.toISOString().split('T')[0]
+  const taskCounts = getTaskCounts(today)
   const dayInfo = {
     date: today,
     dateString: todayString,
@@ -303,7 +444,7 @@ const goToToday = () => {
       day: 'numeric',
     }),
     isToday: true,
-    plantCount: getPlantCount(today),
+    ...taskCounts,
   }
   emit('day-selected', dayInfo)
 }
@@ -647,15 +788,15 @@ onMounted(() => {
   opacity: 0.35;
 }
 
-.month-day--has-plants {
-  border-color: rgba(var(--v-theme-success), 0.4);
+.month-day--has-tasks {
+  border-color: rgba(var(--v-theme-primary), 0.4);
 }
 
-.month-day--today.month-day--has-plants {
+.month-day--today.month-day--has-tasks {
   border-color: rgb(var(--v-theme-primary));
 }
 
-.month-day--selected.month-day--has-plants {
+.month-day--selected.month-day--has-tasks {
   border-color: rgb(var(--v-theme-success));
 }
 
@@ -664,6 +805,71 @@ onMounted(() => {
   font-size: 0.875rem;
   font-weight: 600;
   color: rgba(var(--v-theme-on-surface), 0.85);
+}
+
+/* Task Indicators - Week View */
+.task-indicators {
+  display: flex;
+  gap: 4px;
+  position: absolute;
+  bottom: 8px;
+}
+
+.task-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.task-dot--water {
+  background: #3b82f6; /* Blue */
+}
+
+.task-dot--fertilizer {
+  background: #22c55e; /* Green */
+}
+
+.task-dot--maintenance {
+  background: #f59e0b; /* Amber/Yellow */
+}
+
+/* Task Indicators - Month View */
+.task-indicators-month {
+  display: flex;
+  gap: 2px;
+  position: absolute;
+  bottom: 2px;
+}
+
+.task-dot-sm {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+}
+
+.task-dot-sm.task-dot--water {
+  background: #3b82f6;
+}
+
+.task-dot-sm.task-dot--fertilizer {
+  background: #22c55e;
+}
+
+.task-dot-sm.task-dot--maintenance {
+  background: #f59e0b;
+}
+
+/* Week day has tasks */
+.week-day--has-tasks {
+  border-color: rgba(var(--v-theme-primary), 0.4);
+}
+
+.week-day--today.week-day--has-tasks {
+  border-color: rgb(var(--v-theme-primary));
+}
+
+.week-day--selected.week-day--has-tasks {
+  border-color: rgb(var(--v-theme-success));
 }
 
 .month-day-badge {

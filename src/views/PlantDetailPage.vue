@@ -152,55 +152,83 @@
             </div>
           </div>
 
-          <!-- Additional Care -->
+          <!-- Fertilizer Schedule -->
+          <div class="care-item mb-4">
+            <div class="d-flex align-center mb-2">
+              <v-icon class="mr-3" color="success">mdi-bottle-tonic</v-icon>
+              <span class="text-subtitle-1 font-weight-medium">Fertilizer</span>
+            </div>
+            <v-select
+              v-if="isEditing"
+              v-model="plantForm.fertilizerFrequency"
+              :items="fertilizerOptions"
+              variant="outlined"
+              density="compact"
+              class="mb-2"
+            />
+            <v-text-field
+              v-if="isEditing && plantForm.fertilizerFrequency === 'custom'"
+              v-model="plantForm.customFertilizerWeeks"
+              label="Weeks between fertilizing"
+              type="number"
+              variant="outlined"
+              density="compact"
+              min="1"
+              max="52"
+            />
+            <div v-else class="ml-9">
+              <div class="text-body-1">{{ getFertilizerText(plant.fertilizerFrequency) }}</div>
+              <div v-if="plant.lastFertilized" class="text-caption text-medium-emphasis">
+                Last fertilized: {{ formatDate(plant.lastFertilized) }}
+              </div>
+              <div
+                v-if="plant.fertilizerFrequency && plant.fertilizerFrequency !== 'never'"
+                class="text-caption"
+                :class="isFertilizerDue ? 'text-warning' : 'text-success'"
+              >
+                {{ isFertilizerDue ? '⚠️ Fertilizer due!' : `Next: ${getNextFertilizerDate()}` }}
+              </div>
+            </div>
+          </div>
+
+          <!-- Maintenance Schedule -->
           <div class="care-item">
             <div class="d-flex align-center mb-2">
-              <v-icon class="mr-3" color="green">mdi-leaf</v-icon>
-              <span class="text-subtitle-1 font-weight-medium">Additional Care</span>
+              <v-icon class="mr-3" color="amber">mdi-content-cut</v-icon>
+              <span class="text-subtitle-1 font-weight-medium">Maintenance</span>
+              <v-chip size="x-small" variant="tonal" color="info" class="ml-2"
+                >Pruning, Repotting, Cleaning</v-chip
+              >
             </div>
-            <div v-if="isEditing" class="ml-9">
-              <v-switch
-                v-model="plantForm.needsFertilizer"
-                label="Needs Fertilizer"
-                color="primary"
-                density="compact"
-                hide-details
-                class="mb-2"
-              />
-              <v-switch
-                v-model="plantForm.needsPruning"
-                label="Needs Pruning"
-                color="primary"
-                density="compact"
-                hide-details
-              />
-            </div>
+            <v-select
+              v-if="isEditing"
+              v-model="plantForm.maintenanceFrequency"
+              :items="maintenanceOptions"
+              variant="outlined"
+              density="compact"
+              class="mb-2"
+            />
+            <v-text-field
+              v-if="isEditing && plantForm.maintenanceFrequency === 'custom'"
+              v-model="plantForm.customMaintenanceWeeks"
+              label="Weeks between maintenance"
+              type="number"
+              variant="outlined"
+              density="compact"
+              min="1"
+              max="52"
+            />
             <div v-else class="ml-9">
-              <v-chip
-                v-if="plant.needsFertilizer"
-                size="small"
-                color="success"
-                variant="tonal"
-                class="mr-2 mb-1"
-              >
-                <v-icon start>mdi-nutrition</v-icon>
-                Fertilizer
-              </v-chip>
-              <v-chip
-                v-if="plant.needsPruning"
-                size="small"
-                color="warning"
-                variant="tonal"
-                class="mr-2 mb-1"
-              >
-                <v-icon start>mdi-content-cut</v-icon>
-                Pruning
-              </v-chip>
+              <div class="text-body-1">{{ getMaintenanceText(plant.maintenanceFrequency) }}</div>
+              <div v-if="plant.lastMaintenance" class="text-caption text-medium-emphasis">
+                Last maintenance: {{ formatDate(plant.lastMaintenance) }}
+              </div>
               <div
-                v-if="!plant.needsFertilizer && !plant.needsPruning"
-                class="text-body-2 text-medium-emphasis"
+                v-if="plant.maintenanceFrequency && plant.maintenanceFrequency !== 'never'"
+                class="text-caption"
+                :class="isMaintenanceDue ? 'text-warning' : 'text-success'"
               >
-                No additional care needed
+                {{ isMaintenanceDue ? '⚠️ Maintenance due!' : `Next: ${getNextMaintenanceDate()}` }}
               </div>
             </div>
           </div>
@@ -226,20 +254,22 @@
               color="success"
               variant="outlined"
               block
-              prepend-icon="mdi-nutrition"
+              prepend-icon="mdi-bottle-tonic"
+              :disabled="plant?.fertilizerFrequency === 'never'"
             >
               Fertilize
             </v-btn>
           </v-col>
           <v-col cols="6">
             <v-btn
-              @click="prunePlant"
-              color="warning"
+              @click="maintainPlant"
+              color="amber"
               variant="outlined"
               block
               prepend-icon="mdi-content-cut"
+              :disabled="plant?.maintenanceFrequency === 'never'"
             >
-              Prune
+              Maintain
             </v-btn>
           </v-col>
         </v-row>
@@ -288,7 +318,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   doc,
@@ -337,8 +367,10 @@ const plantForm = ref({
   photoURL: '',
   wateringFrequency: 'weekly',
   lightRequirement: 'bright-indirect',
-  needsFertilizer: false,
-  needsPruning: false,
+  fertilizerFrequency: 'monthly',
+  customFertilizerWeeks: 4,
+  maintenanceFrequency: 'quarterly',
+  customMaintenanceWeeks: 12,
 })
 
 // Form options
@@ -379,6 +411,24 @@ const lightOptions = [
   { title: 'Bright Indirect', value: 'bright-indirect' },
   { title: 'Bright Direct', value: 'bright-direct' },
   { title: 'Full Sun', value: 'full-sun' },
+]
+
+const fertilizerOptions = [
+  { title: 'Never', value: 'never' },
+  { title: 'Monthly', value: 'monthly' },
+  { title: 'Every 2 Months', value: 'bimonthly' },
+  { title: 'Quarterly (Every 3 Months)', value: 'quarterly' },
+  { title: 'Growing Season Only', value: 'seasonal' },
+  { title: 'Custom', value: 'custom' },
+]
+
+const maintenanceOptions = [
+  { title: 'Never', value: 'never' },
+  { title: 'Monthly', value: 'monthly' },
+  { title: 'Quarterly (Every 3 Months)', value: 'quarterly' },
+  { title: 'Twice a Year', value: 'biannually' },
+  { title: 'Annually', value: 'annually' },
+  { title: 'Custom', value: 'custom' },
 ]
 
 // Validation rules
@@ -581,14 +631,36 @@ const waterPlant = async () => {
   }
 }
 
-const fertilizePlant = () => {
-  // Implement fertilize logic
-  console.log('Fertilizing plant...')
+const fertilizePlant = async () => {
+  try {
+    const plantRef = doc(db, 'plants', plant.value.id)
+    await updateDoc(plantRef, {
+      lastFertilized: new Date(),
+    })
+
+    // Update local state
+    plant.value.lastFertilized = new Date()
+
+    console.log('Plant fertilized successfully')
+  } catch (error) {
+    console.error('Error fertilizing plant:', error)
+  }
 }
 
-const prunePlant = () => {
-  // Implement pruning logic
-  console.log('Pruning plant...')
+const maintainPlant = async () => {
+  try {
+    const plantRef = doc(db, 'plants', plant.value.id)
+    await updateDoc(plantRef, {
+      lastMaintenance: new Date(),
+    })
+
+    // Update local state
+    plant.value.lastMaintenance = new Date()
+
+    console.log('Plant maintenance completed successfully')
+  } catch (error) {
+    console.error('Error completing maintenance:', error)
+  }
 }
 
 // Photo handling
@@ -623,6 +695,123 @@ const getWateringText = (frequency) => {
 const getLightText = (requirement) => {
   const option = lightOptions.find((opt) => opt.value === requirement)
   return option ? option.title : requirement
+}
+
+const getFertilizerText = (frequency) => {
+  if (!frequency) return 'Not set'
+  const option = fertilizerOptions.find((opt) => opt.value === frequency)
+  return option ? option.title : frequency
+}
+
+const getMaintenanceText = (frequency) => {
+  if (!frequency) return 'Not set'
+  const option = maintenanceOptions.find((opt) => opt.value === frequency)
+  return option ? option.title : frequency
+}
+
+// Get frequency in weeks for calculations
+const getFrequencyInWeeks = (frequency, customWeeks, type) => {
+  if (frequency === 'custom') return customWeeks || (type === 'fertilizer' ? 4 : 12)
+
+  const frequencyMap = {
+    never: null,
+    monthly: 4,
+    bimonthly: 8,
+    quarterly: 13,
+    seasonal: 16, // ~4 months (growing season)
+    biannually: 26,
+    annually: 52,
+  }
+  return frequencyMap[frequency] || null
+}
+
+// Check if fertilizer is due
+const isFertilizerDue = computed(() => {
+  if (!plant.value?.fertilizerFrequency || plant.value.fertilizerFrequency === 'never') return false
+
+  const weeks = getFrequencyInWeeks(
+    plant.value.fertilizerFrequency,
+    plant.value.customFertilizerWeeks,
+    'fertilizer',
+  )
+  if (!weeks) return false
+
+  if (!plant.value.lastFertilized) return true // Never fertilized
+
+  const lastDate = plant.value.lastFertilized.toDate
+    ? plant.value.lastFertilized.toDate()
+    : new Date(plant.value.lastFertilized)
+  const daysSince = Math.floor((Date.now() - lastDate.getTime()) / (1000 * 60 * 60 * 24))
+  return daysSince >= weeks * 7
+})
+
+// Check if maintenance is due
+const isMaintenanceDue = computed(() => {
+  if (!plant.value?.maintenanceFrequency || plant.value.maintenanceFrequency === 'never')
+    return false
+
+  const weeks = getFrequencyInWeeks(
+    plant.value.maintenanceFrequency,
+    plant.value.customMaintenanceWeeks,
+    'maintenance',
+  )
+  if (!weeks) return false
+
+  if (!plant.value.lastMaintenance) return true // Never maintained
+
+  const lastDate = plant.value.lastMaintenance.toDate
+    ? plant.value.lastMaintenance.toDate()
+    : new Date(plant.value.lastMaintenance)
+  const daysSince = Math.floor((Date.now() - lastDate.getTime()) / (1000 * 60 * 60 * 24))
+  return daysSince >= weeks * 7
+})
+
+// Get next fertilizer date
+const getNextFertilizerDate = () => {
+  if (!plant.value?.fertilizerFrequency || plant.value.fertilizerFrequency === 'never') return ''
+
+  const weeks = getFrequencyInWeeks(
+    plant.value.fertilizerFrequency,
+    plant.value.customFertilizerWeeks,
+    'fertilizer',
+  )
+  if (!weeks) return ''
+
+  let nextDate
+  if (plant.value.lastFertilized) {
+    const lastDate = plant.value.lastFertilized.toDate
+      ? plant.value.lastFertilized.toDate()
+      : new Date(plant.value.lastFertilized)
+    nextDate = new Date(lastDate.getTime() + weeks * 7 * 24 * 60 * 60 * 1000)
+  } else {
+    nextDate = new Date() // Due now if never fertilized
+  }
+
+  return nextDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+// Get next maintenance date
+const getNextMaintenanceDate = () => {
+  if (!plant.value?.maintenanceFrequency || plant.value.maintenanceFrequency === 'never') return ''
+
+  const weeks = getFrequencyInWeeks(
+    plant.value.maintenanceFrequency,
+    plant.value.customMaintenanceWeeks,
+    'maintenance',
+  )
+  if (!weeks) return ''
+
+  let nextDate
+  if (plant.value.lastMaintenance) {
+    const lastDate = plant.value.lastMaintenance.toDate
+      ? plant.value.lastMaintenance.toDate()
+      : new Date(plant.value.lastMaintenance)
+    nextDate = new Date(lastDate.getTime() + weeks * 7 * 24 * 60 * 60 * 1000)
+  } else {
+    nextDate = new Date() // Due now if never maintained
+  }
+
+  return nextDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
 const formatDate = (date) => {

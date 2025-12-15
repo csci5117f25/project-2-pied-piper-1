@@ -71,7 +71,7 @@
           </div>
           <div class="user-stats">
             <v-icon size="14" class="mr-1">mdi-leaf</v-icon>
-            {{ user.numberOfPlants || 0 }} plants
+            {{ plantCount }} {{ plantCount === 1 ? 'plant' : 'plants' }}
           </div>
         </div>
       </div>
@@ -165,7 +165,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { signOut, onAuthStateChanged } from 'firebase/auth'
-import { doc, onSnapshot } from 'firebase/firestore'
+import { doc, onSnapshot, collection, query, where } from 'firebase/firestore'
 import { auth, db } from '@/firebase'
 import AddPlantDialog from '@/components/AddPlantDialog.vue'
 
@@ -175,6 +175,7 @@ const route = useRoute()
 // Reactive data
 const activeTab = ref('home')
 const user = ref(null)
+const plantCount = ref(0)
 const showAddPlantDialog = ref(false)
 const showLogoutDialog = ref(false)
 
@@ -195,8 +196,16 @@ onMounted(() => {
           user.value = { ...currentUser, ...userData }
         }
       })
+
+      // Listen for real-time plant count updates
+      const plantsRef = collection(db, 'plants')
+      const plantsQuery = query(plantsRef, where('userId', '==', currentUser.uid))
+      onSnapshot(plantsQuery, (snapshot) => {
+        plantCount.value = snapshot.size
+      })
     } else {
       user.value = null
+      plantCount.value = 0
       router.push('/')
     }
   })

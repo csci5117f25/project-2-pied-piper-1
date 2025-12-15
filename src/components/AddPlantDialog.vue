@@ -271,31 +271,63 @@
               />
             </div>
 
-            <!-- Additional Care -->
-            <div class="care-section">
+            <!-- Fertilizer Schedule -->
+            <div class="care-section mb-6">
               <h4 class="text-subtitle-1 font-weight-medium mb-3 d-flex align-center">
-                <v-icon class="mr-2" color="success">mdi-leaf</v-icon>
-                Additional Care
+                <v-icon class="mr-2" color="success">mdi-bottle-tonic</v-icon>
+                Fertilizer Schedule
               </h4>
 
-              <v-row>
-                <v-col cols="12" sm="6">
-                  <v-switch
-                    v-model="plantForm.needsFertilizer"
-                    label="Needs Fertilizer"
-                    color="primary"
-                    hide-details
-                  />
-                </v-col>
-                <v-col cols="12" sm="6">
-                  <v-switch
-                    v-model="plantForm.needsPruning"
-                    label="Needs Pruning"
-                    color="primary"
-                    hide-details
-                  />
-                </v-col>
-              </v-row>
+              <v-select
+                v-model="plantForm.fertilizerFrequency"
+                :items="fertilizerOptions"
+                label="Fertilizer Frequency"
+                variant="outlined"
+                class="mb-3"
+                hint="How often does this plant need fertilizing?"
+                persistent-hint
+              />
+
+              <v-text-field
+                v-model="plantForm.customFertilizerWeeks"
+                v-if="plantForm.fertilizerFrequency === 'custom'"
+                label="Weeks between fertilizing"
+                type="number"
+                variant="outlined"
+                min="1"
+                max="52"
+              />
+            </div>
+
+            <!-- Maintenance Schedule -->
+            <div class="care-section">
+              <h4 class="text-subtitle-1 font-weight-medium mb-3 d-flex align-center">
+                <v-icon class="mr-2" color="amber">mdi-content-cut</v-icon>
+                Maintenance Schedule
+                <v-chip size="x-small" variant="tonal" color="info" class="ml-2"
+                  >Pruning, Repotting, Cleaning</v-chip
+                >
+              </h4>
+
+              <v-select
+                v-model="plantForm.maintenanceFrequency"
+                :items="maintenanceOptions"
+                label="Maintenance Frequency"
+                variant="outlined"
+                class="mb-3"
+                hint="Includes pruning, repotting, leaf cleaning, pest checks"
+                persistent-hint
+              />
+
+              <v-text-field
+                v-model="plantForm.customMaintenanceWeeks"
+                v-if="plantForm.maintenanceFrequency === 'custom'"
+                label="Weeks between maintenance"
+                type="number"
+                variant="outlined"
+                min="1"
+                max="52"
+              />
             </div>
           </div>
         </div>
@@ -470,8 +502,10 @@ const plantForm = ref({
   wateringFrequency: 'weekly',
   customWateringDays: 7,
   lightRequirement: 'bright-indirect',
-  needsFertilizer: false,
-  needsPruning: false,
+  fertilizerFrequency: 'monthly',
+  customFertilizerWeeks: 4,
+  maintenanceFrequency: 'quarterly',
+  customMaintenanceWeeks: 12,
 })
 
 // Stepper breadcrumbs
@@ -521,6 +555,24 @@ const lightOptions = [
   { title: 'Full Sun', value: 'full-sun' },
 ]
 
+const fertilizerOptions = [
+  { title: 'Never', value: 'never' },
+  { title: 'Monthly', value: 'monthly' },
+  { title: 'Every 2 Months', value: 'bimonthly' },
+  { title: 'Quarterly (Every 3 Months)', value: 'quarterly' },
+  { title: 'Growing Season Only', value: 'seasonal' },
+  { title: 'Custom', value: 'custom' },
+]
+
+const maintenanceOptions = [
+  { title: 'Never', value: 'never' },
+  { title: 'Monthly', value: 'monthly' },
+  { title: 'Quarterly (Every 3 Months)', value: 'quarterly' },
+  { title: 'Twice a Year', value: 'biannually' },
+  { title: 'Annually', value: 'annually' },
+  { title: 'Custom', value: 'custom' },
+]
+
 // Validation rules
 const rules = {
   required: (value) => !!value || 'This field is required',
@@ -558,8 +610,10 @@ const resetForm = () => {
     wateringFrequency: 'weekly',
     customWateringDays: 7,
     lightRequirement: 'bright-indirect',
-    needsFertilizer: false,
-    needsPruning: false,
+    fertilizerFrequency: 'monthly',
+    customFertilizerWeeks: 4,
+    maintenanceFrequency: 'quarterly',
+    customMaintenanceWeeks: 12,
   }
   // Clear AI analysis state
   aiAnalysisResult.value = null
