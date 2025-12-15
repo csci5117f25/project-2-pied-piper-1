@@ -5,7 +5,7 @@
  */
 
 import { getFunctions, httpsCallable } from 'firebase/functions'
-import { firebaseApp } from '@/firebase'
+import { firebaseApp, auth } from '@/firebase'
 
 // Initialize Cloud Functions
 const functions = getFunctions(firebaseApp)
@@ -32,13 +32,29 @@ export async function getCurrentWeather(lat, lon) {
 
   try {
     let data
+    const isAuthenticated = auth.currentUser !== null
 
-    // Use Cloud Function in production, direct API in development
-    if (USE_CLOUD_FUNCTIONS || !API_KEY) {
-      const result = await getWeatherFunction({ lat, lon, type: 'current' })
-      data = result.data
-    } else {
-      // Fallback for local development
+    // Use Cloud Function only if authenticated, otherwise fallback to direct API
+    if ((USE_CLOUD_FUNCTIONS || !API_KEY) && isAuthenticated) {
+      try {
+        const result = await getWeatherFunction({ lat, lon, type: 'current' })
+        data = result.data
+      } catch (error) {
+        // If Cloud Function fails (e.g., auth error), try direct API if available
+        if (API_KEY) {
+          const response = await fetch(
+            `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&appid=${API_KEY}`,
+          )
+          if (!response.ok) {
+            throw new Error('Weather data unavailable')
+          }
+          data = await response.json()
+        } else {
+          throw error
+        }
+      }
+    } else if (API_KEY) {
+      // Fallback to direct API for unauthenticated users or local development
       const response = await fetch(
         `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&appid=${API_KEY}`,
       )
@@ -46,6 +62,8 @@ export async function getCurrentWeather(lat, lon) {
         throw new Error('Weather data unavailable')
       }
       data = await response.json()
+    } else {
+      throw new Error('Weather service unavailable - please sign in')
     }
 
     const weatherData = {
@@ -85,13 +103,29 @@ export async function getWeatherForecast(lat, lon) {
 
   try {
     let data
+    const isAuthenticated = auth.currentUser !== null
 
-    // Use Cloud Function in production, direct API in development
-    if (USE_CLOUD_FUNCTIONS || !API_KEY) {
-      const result = await getWeatherFunction({ lat, lon, type: 'forecast' })
-      data = result.data
-    } else {
-      // Fallback for local development
+    // Use Cloud Function only if authenticated, otherwise fallback to direct API
+    if ((USE_CLOUD_FUNCTIONS || !API_KEY) && isAuthenticated) {
+      try {
+        const result = await getWeatherFunction({ lat, lon, type: 'forecast' })
+        data = result.data
+      } catch (error) {
+        // If Cloud Function fails (e.g., auth error), try direct API if available
+        if (API_KEY) {
+          const response = await fetch(
+            `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&units=metric&appid=${API_KEY}`,
+          )
+          if (!response.ok) {
+            throw new Error('Weather forecast unavailable')
+          }
+          data = await response.json()
+        } else {
+          throw error
+        }
+      }
+    } else if (API_KEY) {
+      // Fallback to direct API for unauthenticated users or local development
       const response = await fetch(
         `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&units=metric&appid=${API_KEY}`,
       )
@@ -99,6 +133,8 @@ export async function getWeatherForecast(lat, lon) {
         throw new Error('Weather forecast unavailable')
       }
       data = await response.json()
+    } else {
+      throw new Error('Weather service unavailable - please sign in')
     }
 
     // Group by day and get daily summaries
