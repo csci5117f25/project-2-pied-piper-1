@@ -234,46 +234,6 @@
           </div>
         </v-card-text>
       </v-card>
-
-      <!-- Action Buttons -->
-      <div v-if="!isEditing" class="action-buttons mb-6">
-        <v-btn
-          @click="waterPlant"
-          color="primary"
-          size="large"
-          block
-          prepend-icon="mdi-water"
-          class="mb-3"
-        >
-          Water Plant
-        </v-btn>
-        <v-row>
-          <v-col cols="6">
-            <v-btn
-              @click="fertilizePlant"
-              color="success"
-              variant="outlined"
-              block
-              prepend-icon="mdi-bottle-tonic"
-              :disabled="plant?.fertilizerFrequency === 'never'"
-            >
-              Fertilize
-            </v-btn>
-          </v-col>
-          <v-col cols="6">
-            <v-btn
-              @click="maintainPlant"
-              color="amber"
-              variant="outlined"
-              block
-              prepend-icon="mdi-content-cut"
-              :disabled="plant?.maintenanceFrequency === 'never'"
-            >
-              Maintain
-            </v-btn>
-          </v-col>
-        </v-row>
-      </div>
     </div>
 
     <!-- Delete Confirmation Dialog -->

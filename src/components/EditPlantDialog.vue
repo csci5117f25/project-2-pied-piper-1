@@ -103,14 +103,21 @@
             class="mb-4"
           />
 
-          <v-row>
-            <v-col cols="6">
-              <v-switch v-model="form.needsFertilizer" label="Needs Fertilizer" color="primary" />
-            </v-col>
-            <v-col cols="6">
-              <v-switch v-model="form.needsPruning" label="Needs Pruning" color="primary" />
-            </v-col>
-          </v-row>
+          <v-select
+            v-model="form.fertilizerFrequency"
+            :items="fertilizerOptions"
+            label="Fertilizer Frequency"
+            variant="outlined"
+            class="mb-4"
+          />
+
+          <v-select
+            v-model="form.maintenanceFrequency"
+            :items="maintenanceOptions"
+            label="Maintenance Frequency"
+            variant="outlined"
+            class="mb-4"
+          />
         </v-form>
       </v-card-text>
 
@@ -167,8 +174,10 @@ const form = ref({
   wateringFrequency: 'weekly',
   customWateringDays: 7,
   lightRequirement: 'bright-indirect',
-  needsFertilizer: false,
-  needsPruning: false,
+  fertilizerFrequency: 'monthly',
+  maintenanceFrequency: 'quarterly',
+  lastFertilized: null,
+  lastMaintenance: null,
   _photoFile: null,
 })
 
@@ -201,6 +210,22 @@ const lightOptions = [
   { title: 'Full Sun', value: 'full-sun' },
 ]
 
+const fertilizerOptions = [
+  { title: 'Never', value: 'never' },
+  { title: 'Monthly', value: 'monthly' },
+  { title: 'Every 2 Months', value: 'bimonthly' },
+  { title: 'Quarterly (Every 3 Months)', value: 'quarterly' },
+  { title: 'Growing Season Only', value: 'seasonal' },
+]
+
+const maintenanceOptions = [
+  { title: 'Never', value: 'never' },
+  { title: 'Monthly', value: 'monthly' },
+  { title: 'Quarterly (Every 3 Months)', value: 'quarterly' },
+  { title: 'Twice a Year', value: 'biannually' },
+  { title: 'Annually', value: 'annually' },
+]
+
 const rules = {
   required: (value) => !!value || 'This field is required',
 }
@@ -219,8 +244,10 @@ watch(
         wateringFrequency: plant.wateringFrequency || 'weekly',
         customWateringDays: plant.customWateringDays || 7,
         lightRequirement: plant.lightRequirement || 'bright-indirect',
-        needsFertilizer: plant.needsFertilizer || false,
-        needsPruning: plant.needsPruning || false,
+        fertilizerFrequency: plant.fertilizerFrequency || 'monthly',
+        maintenanceFrequency: plant.maintenanceFrequency || 'quarterly',
+        lastFertilized: plant.lastFertilized || null,
+        lastMaintenance: plant.lastMaintenance || null,
         _photoFile: null,
       }
     }
@@ -303,8 +330,10 @@ const updatePlant = async () => {
       wateringFrequency: form.value.wateringFrequency,
       customWateringDays: form.value.customWateringDays,
       lightRequirement: form.value.lightRequirement,
-      needsFertilizer: form.value.needsFertilizer,
-      needsPruning: form.value.needsPruning,
+      fertilizerFrequency: form.value.fertilizerFrequency,
+      maintenanceFrequency: form.value.maintenanceFrequency,
+      lastFertilized: form.value.lastFertilized,
+      lastMaintenance: form.value.lastMaintenance,
       updatedAt: new Date(),
     }
 
