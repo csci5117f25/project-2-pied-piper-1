@@ -1,97 +1,123 @@
 <template>
-  <v-app>
+  <v-app class="splash-app">
     <v-main>
-      <v-container fluid class="splash-container">
-        <v-row justify="center" align="center" class="fill-height">
-          <v-col cols="12" sm="8" md="6" lg="4">
-            <!-- App Logo and Branding -->
-            <div class="text-center mb-8">
-              <v-icon size="120" color="primary" class="mb-4"> mdi-sprout </v-icon>
-              <h1 class="text-h3 font-weight-bold text-primary mb-2">Plant Care Tracker</h1>
-              <p class="text-h6 text-medium-emphasis">Your smart companion for healthy plants</p>
-            </div>
+      <div class="splash-container">
+        <!-- Animated Background Elements -->
+        <div class="bg-decoration">
+          <div class="floating-leaf leaf-1"></div>
+          <div class="floating-leaf leaf-2"></div>
+          <div class="floating-leaf leaf-3"></div>
+          <div class="glow-orb"></div>
+        </div>
 
-            <!-- Action Buttons -->
-            <div class="text-center">
-              <v-btn
-                @click="showAuthDialog = true"
-                color="primary"
-                size="x-large"
-                block
-                class="mb-4 text-none"
-                prepend-icon="mdi-login"
-              >
-                Login / Sign Up
-              </v-btn>
+        <v-container class="content-container">
+          <v-row justify="center" align="center" class="fill-height">
+            <v-col cols="12" sm="10" md="8" lg="6" xl="5">
+              <!-- Hero Section -->
+              <div class="hero-section">
+                <!-- Logo -->
+                <div class="logo-wrapper">
+                  <div class="logo-glow"></div>
+                  <div class="logo-circle">
+                    <v-icon size="56" color="white">mdi-leaf</v-icon>
+                  </div>
+                </div>
 
-              <v-btn
-                @click="showLearnMore = true"
-                variant="outlined"
-                color="primary"
-                size="large"
-                block
-                class="text-none"
-                prepend-icon="mdi-information"
-              >
-                Learn More
-              </v-btn>
-            </div>
+                <!-- Branding -->
+                <h1 class="hero-title">Plant Care <span class="gradient-text">Tracker</span></h1>
+                <p class="hero-subtitle">Your intelligent companion for thriving plants</p>
 
-            <!-- Features Preview (shown when Learn More is clicked) -->
-            <v-expand-transition>
-              <v-card v-if="showLearnMore" class="mt-6" elevation="2">
-                <v-card-title class="text-center">
-                  <v-icon color="primary" class="mr-2">mdi-heart</v-icon>
-                  Why Plant Care Tracker?
-                </v-card-title>
-                <v-card-text>
-                  <v-row>
-                    <v-col cols="12" sm="6">
-                      <div class="feature-item">
-                        <v-icon color="success" class="mr-2">mdi-calendar-check</v-icon>
-                        <span>Smart watering reminders</span>
-                      </div>
-                    </v-col>
-                    <v-col cols="12" sm="6">
-                      <div class="feature-item">
-                        <v-icon color="info" class="mr-2">mdi-camera</v-icon>
-                        <span>Photo progress tracking</span>
-                      </div>
-                    </v-col>
-                    <v-col cols="12" sm="6">
-                      <div class="feature-item">
-                        <v-icon color="warning" class="mr-2">mdi-weather-sunny</v-icon>
-                        <span>Weather-based care tips</span>
-                      </div>
-                    </v-col>
-                    <v-col cols="12" sm="6">
-                      <div class="feature-item">
-                        <v-icon color="purple" class="mr-2">mdi-trophy</v-icon>
-                        <span>Achievement rewards</span>
-                      </div>
-                    </v-col>
-                  </v-row>
-                </v-card-text>
-                <v-card-actions class="justify-center pb-4">
+                <!-- Action Buttons -->
+                <div class="action-buttons">
                   <v-btn
                     @click="showAuthDialog = true"
                     color="primary"
-                    variant="flat"
+                    size="x-large"
+                    block
+                    class="primary-btn mb-4"
                     prepend-icon="mdi-rocket-launch"
                   >
-                    Get Started Now
+                    Get Started
                   </v-btn>
-                </v-card-actions>
-              </v-card>
-            </v-expand-transition>
-          </v-col>
-        </v-row>
 
-        <!-- Authentication Dialog -->
-        <v-dialog v-model="showAuthDialog" max-width="500" persistent>
+                  <v-btn
+                    @click="showLearnMore = !showLearnMore"
+                    variant="outlined"
+                    size="large"
+                    block
+                    class="secondary-btn"
+                    :append-icon="showLearnMore ? 'mdi-chevron-up' : 'mdi-chevron-down'"
+                  >
+                    Learn More
+                  </v-btn>
+                </div>
+
+                <!-- Features Card -->
+                <v-expand-transition>
+                  <div v-if="showLearnMore" class="features-card">
+                    <div class="features-header">
+                      <span>Why choose us?</span>
+                    </div>
+                    <div class="features-grid">
+                      <div class="feature-item">
+                        <div class="feature-icon" style="--accent: #10b981">
+                          <v-icon size="24">mdi-bell-ring</v-icon>
+                        </div>
+                        <div class="feature-text">
+                          <strong>Smart Reminders</strong>
+                          <span>Never miss a watering day</span>
+                        </div>
+                      </div>
+                      <div class="feature-item">
+                        <div class="feature-icon" style="--accent: #3b82f6">
+                          <v-icon size="24">mdi-brain</v-icon>
+                        </div>
+                        <div class="feature-text">
+                          <strong>AI Identification</strong>
+                          <span>Identify any plant instantly</span>
+                        </div>
+                      </div>
+                      <div class="feature-item">
+                        <div class="feature-icon" style="--accent: #f59e0b">
+                          <v-icon size="24">mdi-weather-sunny</v-icon>
+                        </div>
+                        <div class="feature-text">
+                          <strong>Weather Sync</strong>
+                          <span>Care tips based on forecast</span>
+                        </div>
+                      </div>
+                      <div class="feature-item">
+                        <div class="feature-icon" style="--accent: #8b5cf6">
+                          <v-icon size="24">mdi-trophy</v-icon>
+                        </div>
+                        <div class="feature-text">
+                          <strong>Earn Rewards</strong>
+                          <span>Gamified plant care journey</span>
+                        </div>
+                      </div>
+                    </div>
+                    <v-btn
+                      @click="showAuthDialog = true"
+                      color="primary"
+                      variant="tonal"
+                      block
+                      class="mt-4"
+                      prepend-icon="mdi-arrow-right"
+                    >
+                      Start Your Journey
+                    </v-btn>
+                  </div>
+                </v-expand-transition>
+              </div>
+            </v-col>
+          </v-row>
+        </v-container>
+
+        <!-- Auth Dialog -->
+        <v-dialog v-model="showAuthDialog" max-width="480" class="auth-dialog">
           <AuthDialog @close="showAuthDialog = false" @authenticated="onAuthenticated" />
         </v-dialog>
-      </v-container>
+      </div>
     </v-main>
   </v-app>
 </template>
@@ -103,61 +129,281 @@ import AuthDialog from '@/components/auth/AuthDialog.vue'
 
 const router = useRouter()
 
-// Reactive data
 const showAuthDialog = ref(false)
 const showLearnMore = ref(false)
 
-// Handle successful authentication
 const onAuthenticated = () => {
   showAuthDialog.value = false
-  // Redirect to onboarding for first-time users or main app
   router.push('/onboarding')
 }
 </script>
 
 <style scoped>
-.splash-container {
-  min-height: 100vh;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-  position: relative;
+.splash-app {
+  background: url('/wallpaper.jpg') center/cover no-repeat fixed;
 }
 
-.splash-container::before {
-  content: '';
+.splash-container {
+  min-height: 100vh;
+  position: relative;
+  overflow: hidden;
+}
+
+.content-container {
+  position: relative;
+  z-index: 10;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+}
+
+.fill-height {
+  min-height: 100%;
+}
+
+/* Background Decorations */
+.bg-decoration {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-image:
-    radial-gradient(circle at 20% 80%, rgba(76, 175, 80, 0.1) 0%, transparent 50%),
-    radial-gradient(circle at 80% 20%, rgba(139, 195, 74, 0.1) 0%, transparent 50%),
-    radial-gradient(circle at 40% 40%, rgba(205, 220, 57, 0.05) 0%, transparent 50%);
+  inset: 0;
   pointer-events: none;
+  overflow: hidden;
+}
+
+.floating-leaf {
+  position: absolute;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  opacity: 0.5;
+  filter: blur(60px);
+}
+
+.leaf-1 {
+  top: 10%;
+  left: 10%;
+  background: rgba(16, 185, 129, 0.3);
+  animation: float 8s ease-in-out infinite;
+}
+
+.leaf-2 {
+  top: 60%;
+  right: 15%;
+  background: rgba(110, 231, 183, 0.25);
+  animation: float 10s ease-in-out infinite reverse;
+}
+
+.leaf-3 {
+  bottom: 20%;
+  left: 30%;
+  background: rgba(5, 150, 105, 0.2);
+  animation: float 12s ease-in-out infinite;
+}
+
+.glow-orb {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.08) 0%, transparent 70%);
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-30px) scale(1.05);
+  }
+}
+
+/* Hero Section */
+.hero-section {
+  text-align: center;
+  padding: 40px 0;
+}
+
+/* Logo */
+.logo-wrapper {
+  position: relative;
+  display: inline-block;
+  margin-bottom: 32px;
+}
+
+.logo-glow {
+  position: absolute;
+  inset: -20px;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.3) 0%, transparent 70%);
+  animation: pulse-glow 3s ease-in-out infinite;
+}
+
+.logo-circle {
+  position: relative;
+  width: 100px;
+  height: 100px;
+  border-radius: 28px;
+  background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 20px 40px rgba(5, 150, 105, 0.3);
+}
+
+@keyframes pulse-glow {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.1);
+  }
+}
+
+/* Typography */
+.hero-title {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 6vw, 3rem);
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.1;
+  margin-bottom: 16px;
+  letter-spacing: -0.02em;
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, #059669 0%, #10b981 50%, #34d399 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.hero-subtitle {
+  font-size: 1.125rem;
+  color: #64748b;
+  margin-bottom: 40px;
+  font-weight: 400;
+}
+
+/* Buttons */
+.action-buttons {
+  max-width: 320px;
+  margin: 0 auto;
+}
+
+.primary-btn {
+  height: 56px !important;
+  font-size: 1rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.01em !important;
+  box-shadow: 0 12px 24px rgba(5, 150, 105, 0.25) !important;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+
+.primary-btn:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 16px 32px rgba(5, 150, 105, 0.35) !important;
+}
+
+.secondary-btn {
+  height: 48px !important;
+  font-weight: 600 !important;
+  border-width: 2px !important;
+  border-color: rgba(15, 23, 42, 0.6) !important;
+  color: #0f172a !important;
+  background: rgba(255, 255, 255, 0.9) !important;
+  backdrop-filter: blur(8px) !important;
+}
+
+/* Features Card */
+.features-card {
+  margin-top: 32px;
+  background: white;
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+.features-header {
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 20px;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
 }
 
 .feature-item {
   display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  text-align: left;
+}
+
+.feature-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  display: flex;
   align-items: center;
-  margin-bottom: 8px;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
-.v-btn {
-  border-radius: 12px !important;
+.feature-icon .v-icon {
+  color: var(--accent);
 }
 
-.fill-height {
-  min-height: 100vh;
+.feature-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-/* Mobile responsiveness */
+.feature-text strong {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.feature-text span {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+/* Mobile Responsive */
 @media (max-width: 600px) {
-  .text-h3 {
-    font-size: 2rem !important;
+  .hero-section {
+    padding: 24px 0;
   }
 
-  .text-h6 {
-    font-size: 1.1rem !important;
+  .logo-circle {
+    width: 80px;
+    height: 80px;
+    border-radius: 20px;
+  }
+
+  .logo-circle .v-icon {
+    font-size: 40px !important;
+  }
+
+  .features-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .feature-item {
+    padding: 8px 0;
   }
 }
 </style>
