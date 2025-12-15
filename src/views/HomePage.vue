@@ -1007,7 +1007,7 @@ const completeMaintenance = async (plant) => {
     rgb(var(--v-theme-primary)) 0%,
     rgba(var(--v-theme-primary), 0.85) 100%
   );
-  padding: 24px 20px 32px;
+  padding: 24px 20px 24px;
   margin-bottom: -16px;
   border-radius: 0 0 24px 24px;
 }

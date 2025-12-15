@@ -310,9 +310,12 @@ const onAuthenticated = () => {
 
 .secondary-btn {
   height: 48px !important;
-  font-weight: 500 !important;
-  border-color: rgba(15, 23, 42, 0.15) !important;
-  color: #334155 !important;
+  font-weight: 600 !important;
+  border-width: 2px !important;
+  border-color: rgba(15, 23, 42, 0.6) !important;
+  color: #0f172a !important;
+  background: rgba(255, 255, 255, 0.9) !important;
+  backdrop-filter: blur(8px) !important;
 }
 
 /* Features Card */
