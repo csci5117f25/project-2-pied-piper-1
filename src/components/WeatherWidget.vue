@@ -30,7 +30,7 @@
           <div class="weather-location" v-if="weatherData?.location">
             {{ weatherData.location }}
           </div>
-          <div class="weather-temp">{{ weatherData?.temperature || '--' }}°</div>
+          <div class="weather-temp">{{ displayTemperature }}{{ tempUnit }}</div>
           <div class="weather-desc">
             {{ weatherData?.description || weatherData?.condition || 'N/A' }}
           </div>
@@ -85,9 +85,33 @@ const props = defineProps({
     type: String,
     default: null,
   },
+  temperatureUnit: {
+    type: String,
+    default: 'celsius',
+  },
 })
 
 defineEmits(['retry'])
+
+// Convert Celsius to Fahrenheit
+const celsiusToFahrenheit = (celsius) => {
+  return Math.round((celsius * 9) / 5 + 32)
+}
+
+// Display temperature with correct unit
+const displayTemperature = computed(() => {
+  if (!props.weatherData?.temperature) return '--'
+  const temp = props.weatherData.temperature
+  if (props.temperatureUnit === 'fahrenheit') {
+    return celsiusToFahrenheit(temp)
+  }
+  return temp
+})
+
+// Temperature unit symbol
+const tempUnit = computed(() => {
+  return props.temperatureUnit === 'fahrenheit' ? '°F' : '°C'
+})
 
 const weatherIcon = computed(() => {
   if (!props.weatherData?.condition) return 'mdi-weather-partly-cloudy'

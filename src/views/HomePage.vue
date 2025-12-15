@@ -33,6 +33,7 @@
           :recommendation="wateringRecommendation"
           :loading="weatherLoading"
           :error="weatherError"
+          :temperature-unit="temperatureUnit"
           @retry="fetchWeatherData"
         />
       </div>
@@ -192,6 +193,7 @@ const weatherData = ref(null)
 const wateringRecommendation = ref(null)
 const weatherLoading = ref(false)
 const weatherError = ref(null)
+const temperatureUnit = ref('celsius')
 
 // Show next achievement in queue
 const showNextAchievement = () => {
@@ -520,9 +522,21 @@ watch(
 
 // Listen for user and plants
 onMounted(() => {
-  onAuthStateChanged(auth, (currentUser) => {
+  onAuthStateChanged(auth, async (currentUser) => {
     if (currentUser) {
       user.value = currentUser
+
+      // Load user preferences including temperature unit
+      try {
+        const userDoc = await getDoc(doc(db, 'users', currentUser.uid))
+        if (userDoc.exists()) {
+          const userData = userDoc.data()
+          // Set temperature unit (default to celsius)
+          temperatureUnit.value = userData.temperatureUnit || 'celsius'
+        }
+      } catch (error) {
+        console.error('Error loading user preferences:', error)
+      }
 
       // Listen for user's plants
       const plantsQuery = query(collection(db, 'plants'), where('userId', '==', currentUser.uid))

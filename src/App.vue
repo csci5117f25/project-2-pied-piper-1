@@ -1,6 +1,9 @@
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useTheme } from 'vuetify'
 import { listenForMessages, isMessagingSupported } from '@/services/notificationService'
+
+const theme = useTheme()
 
 // Notification snackbar state
 const showNotificationSnackbar = ref(false)
@@ -10,6 +13,13 @@ const notificationPlantId = ref(null)
 
 // Listen for foreground messages
 onMounted(() => {
+  // Load dark mode preference from localStorage on app startup
+  const savedDarkMode = localStorage.getItem('darkMode')
+  if (savedDarkMode !== null) {
+    const isDark = savedDarkMode === 'true'
+    theme.global.name.value = isDark ? 'dark' : 'light'
+  }
+
   if (isMessagingSupported()) {
     listenForMessages((payload) => {
       console.log('App received foreground message:', payload)

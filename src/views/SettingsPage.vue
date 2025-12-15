@@ -422,7 +422,7 @@ const settings = ref({
   location: true,
   darkMode: false,
   reminderTime: '9:00 AM',
-  temperatureUnit: 'fahrenheit',
+  temperatureUnit: 'celsius',
 })
 
 // Notification detail settings
@@ -569,19 +569,53 @@ const updateLocationSettings = async (enabled) => {
   }
 }
 
-const toggleTheme = (isDark) => {
+const toggleTheme = async (isDark) => {
   theme.global.name.value = isDark ? 'dark' : 'light'
+  // Save to localStorage for immediate persistence
+  localStorage.setItem('darkMode', isDark.toString())
+
+  // Save to Firestore for cross-device sync
+  if (user.value) {
+    try {
+      const userRef = doc(db, 'users', user.value.uid)
+      await updateDoc(userRef, { darkMode: isDark })
+    } catch (error) {
+      console.error('Error saving dark mode preference:', error)
+    }
+  }
+
   showSuccess.value = true
   successMessage.value = `${isDark ? 'Dark' : 'Light'} mode enabled`
 }
 
-const updateTemperatureUnit = (unit) => {
+const updateTemperatureUnit = async (unit) => {
+  // Save to Firestore
+  if (user.value) {
+    try {
+      const userRef = doc(db, 'users', user.value.uid)
+      await updateDoc(userRef, { temperatureUnit: unit })
+    } catch (error) {
+      console.error('Error saving temperature unit:', error)
+    }
+  }
+
   showSuccess.value = true
   successMessage.value = `Temperature unit set to ${unit === 'celsius' ? 'Celsius' : 'Fahrenheit'}`
 }
 
-const saveReminderTime = () => {
+const saveReminderTime = async () => {
   settings.value.reminderTime = selectedTime.value
+
+  // Save to Firestore
+  if (user.value) {
+    try {
+      const userRef = doc(db, 'users', user.value.uid)
+      await updateDoc(userRef, { reminderTime: selectedTime.value })
+    } catch (error) {
+      console.error('Error saving reminder time:', error)
+    }
+  }
+
   showTimeDialog.value = false
   showSuccess.value = true
   successMessage.value = 'Reminder time updated'
@@ -646,12 +680,55 @@ const formatDate = (dateString) => {
 
 // Initialize
 onMounted(() => {
+  // Load dark mode from localStorage immediately
+  const savedDarkMode = localStorage.getItem('darkMode')
+  if (savedDarkMode !== null) {
+    const isDark = savedDarkMode === 'true'
+    settings.value.darkMode = isDark
+    theme.global.name.value = isDark ? 'dark' : 'light'
+  }
+
   onAuthStateChanged(auth, async (currentUser) => {
     if (currentUser) {
       user.value = currentUser
       editForm.value = {
         displayName: currentUser.displayName || '',
         email: currentUser.email || '',
+      }
+
+      // Load all settings from Firestore
+      try {
+        const userRef = doc(db, 'users', currentUser.uid)
+        const userDoc = await getDoc(userRef)
+
+        if (userDoc.exists()) {
+          const userData = userDoc.data()
+
+          // Load dark mode (Firestore overrides localStorage)
+          if (userData.darkMode !== undefined) {
+            settings.value.darkMode = userData.darkMode
+            theme.global.name.value = userData.darkMode ? 'dark' : 'light'
+            localStorage.setItem('darkMode', userData.darkMode.toString())
+          }
+
+          // Load location setting
+          if (userData.locationEnabled !== undefined) {
+            settings.value.location = userData.locationEnabled
+          }
+
+          // Load temperature unit
+          if (userData.temperatureUnit) {
+            settings.value.temperatureUnit = userData.temperatureUnit
+          }
+
+          // Load reminder time
+          if (userData.reminderTime) {
+            settings.value.reminderTime = userData.reminderTime
+            selectedTime.value = userData.reminderTime
+          }
+        }
+      } catch (error) {
+        console.error('Error loading user settings:', error)
       }
 
       // Load notification settings from Firestore

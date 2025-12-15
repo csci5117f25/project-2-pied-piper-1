@@ -20,6 +20,7 @@ const firebaseConfig = {
 
 // Initialize Firebase
 export const firebaseApp = initializeApp(firebaseConfig)
+export const app = firebaseApp // Alias for compatibility
 
 // Initialize Firebase Authentication and get a reference to the service
 export const auth = getAuth(firebaseApp)
