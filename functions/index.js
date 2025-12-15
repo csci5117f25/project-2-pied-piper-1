@@ -5,6 +5,7 @@
 
 const functions = require('firebase-functions')
 const { onSchedule } = require('firebase-functions/v2/scheduler')
+const { logger } = require('firebase-functions/v2')
 const admin = require('firebase-admin')
 
 // Initialize admin once
@@ -71,28 +72,36 @@ exports.sendDailyReminders = onSchedule(
     const ampm = currentHour >= 12 ? 'PM' : 'AM'
     const currentTime12 = `${hour12}:${String(currentMinute).padStart(2, '0')} ${ampm}`
 
-    console.log(`Checking reminders at: ${currentTime} (${currentTime12})`)
+    logger.info(`Checking reminders at: ${currentTime} (${currentTime12})`)
 
     try {
-      // Get all users with notifications enabled
-      const usersSnapshot = await admin
-        .firestore()
-        .collection('users')
-        .where('notificationsEnabled', '==', true)
-        .get()
+      // Get all users (we'll filter by notification settings in the loop)
+      const usersSnapshot = await admin.firestore().collection('users').get()
+
+      logger.info(`Found ${usersSnapshot.size} total users, checking for enabled notifications`)
 
       const sendPromises = []
 
       usersSnapshot.forEach((userDoc) => {
         const userData = userDoc.data()
+
+        // Skip if notifications are not enabled
+        if (!userData.notificationsEnabled) {
+          return
+        }
+
         const reminderTime = userData.reminderTime || '11:00 AM'
 
         // Normalize the reminder time for comparison
         let userReminderTime = reminderTime.trim()
 
+        logger.info(
+          `User ${userDoc.id}: reminderTime="${userReminderTime}", current="${currentTime12}"`,
+        )
+
         // Check if current time matches user's reminder time
         if (userReminderTime === currentTime12 || userReminderTime === currentTime) {
-          console.log(`Sending reminder to user ${userDoc.id} at ${reminderTime}`)
+          logger.info(`Sending reminder to user ${userDoc.id} at ${reminderTime}`)
 
           // Get user's FCM tokens
           const fcmTokens = userData.fcmTokens || []
@@ -113,10 +122,10 @@ exports.sendDailyReminders = onSchedule(
                   .messaging()
                   .send(message)
                   .then((response) => {
-                    console.log(`Successfully sent reminder to ${userDoc.id}:`, response)
+                    logger.info(`Successfully sent reminder to ${userDoc.id}:`, response)
                   })
                   .catch((error) => {
-                    console.error(`Error sending to ${userDoc.id}:`, error)
+                    logger.error(`Error sending to ${userDoc.id}:`, error)
                     // If token is invalid, remove it
                     if (
                       error.code === 'messaging/invalid-registration-token' ||
@@ -134,15 +143,15 @@ exports.sendDailyReminders = onSchedule(
               )
             })
           } else {
-            console.log(`User ${userDoc.id} has no FCM tokens`)
+            logger.warn(`User ${userDoc.id} has no FCM tokens`)
           }
         }
       })
 
       await Promise.all(sendPromises)
-      console.log('Daily reminders check completed')
+      logger.info('Daily reminders check completed')
     } catch (error) {
-      console.error('Error in sendDailyReminders:', error)
+      logger.error('Error in sendDailyReminders:', error)
     }
 
     return null
