@@ -718,7 +718,7 @@ const checkAndSendNotifications = async (userId, plantsToCheck) => {
     // Fertilizer notifications (check monthly)
     if (fertilizerEnabled) {
       const plantsNeedingFertilizer = plantsToCheck.filter((plant) => {
-        if (!plant.needsFertilizer) return false
+        if (!plant.fertilizerFrequency || plant.fertilizerFrequency === 'never') return false
         const nextFertilizer = calculateNextNotificationTime(plant, 'fertilizer')
         if (!nextFertilizer) return false
         const today = new Date()
@@ -745,7 +745,7 @@ const checkAndSendNotifications = async (userId, plantsToCheck) => {
     // Pruning notifications (check quarterly)
     if (pruningEnabled) {
       const plantsNeedingPruning = plantsToCheck.filter((plant) => {
-        if (!plant.needsPruning) return false
+        if (!plant.maintenanceFrequency || plant.maintenanceFrequency === 'never') return false
         const nextPruning = calculateNextNotificationTime(plant, 'pruning')
         if (!nextPruning) return false
         const today = new Date()

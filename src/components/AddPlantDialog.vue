@@ -801,6 +801,8 @@ const savePlant = async () => {
       userId: user.value.uid,
       createdAt: new Date(),
       lastWatered: null,
+      lastFertilized: null,
+      lastMaintenance: null,
     }
 
     // Remove internal file reference
