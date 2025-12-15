@@ -62,7 +62,12 @@
       <!-- User Profile Section -->
       <div class="user-section" v-if="user">
         <v-avatar size="44" class="user-avatar">
-          <img v-if="user.photoURL" :src="user.photoURL" :alt="user.displayName" />
+          <img
+            v-if="user.photoURL"
+            :src="user.photoURL"
+            :alt="user.displayName"
+            style="object-fit: cover; width: 100%; height: 100%"
+          />
           <v-icon v-else size="28" color="primary">mdi-account</v-icon>
         </v-avatar>
         <div class="user-info">

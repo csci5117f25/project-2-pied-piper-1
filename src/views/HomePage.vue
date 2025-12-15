@@ -18,7 +18,12 @@
           class="profile-btn"
         >
           <v-avatar size="36">
-            <img v-if="user?.photoURL" :src="user.photoURL" :alt="user.displayName" />
+            <img
+              v-if="user?.photoURL"
+              :src="user.photoURL"
+              :alt="user.displayName"
+              style="object-fit: cover; width: 100%; height: 100%"
+            />
             <v-icon v-else color="primary">mdi-account</v-icon>
           </v-avatar>
         </v-btn>

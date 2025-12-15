@@ -22,7 +22,12 @@
 
       <div class="profile-section">
         <v-avatar size="72" class="profile-avatar">
-          <img v-if="user?.photoURL" :src="user.photoURL" :alt="user.displayName" />
+          <img
+            v-if="user?.photoURL"
+            :src="user.photoURL"
+            :alt="user.displayName"
+            style="object-fit: cover; width: 100%; height: 100%"
+          />
           <v-icon v-else size="40">mdi-account-circle</v-icon>
         </v-avatar>
 
