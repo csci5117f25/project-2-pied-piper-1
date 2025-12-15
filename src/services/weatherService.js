@@ -5,10 +5,10 @@
  */
 
 import { getFunctions, httpsCallable } from 'firebase/functions'
-import { app } from '@/firebase'
+import { firebaseApp } from '@/firebase'
 
 // Initialize Cloud Functions
-const functions = getFunctions(app)
+const functions = getFunctions(firebaseApp)
 const getWeatherFunction = httpsCallable(functions, 'getWeather')
 
 // Fallback to direct API for development (if .env.local exists)
