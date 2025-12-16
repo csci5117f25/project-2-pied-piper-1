@@ -5,30 +5,35 @@
 
 const functions = require('firebase-functions')
 const { onSchedule } = require('firebase-functions/v2/scheduler')
-const { onCall } = require('firebase-functions/v2/https')
-const { logger } = require('firebase-functions/v2')
-const admin = require('firebase-admin')
+const { onCall, HttpsError } = require('firebase-functions/v2/https')
+const logger = require('firebase-functions/logger')
+const { initializeApp } = require("firebase-admin/app");
+const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+const { getMessaging } = require("firebase-admin/messaging");
 
 // Initialize admin once
-admin.initializeApp()
+initializeApp()
+const db = getFirestore();
+const messaging = getMessaging();
+
 const axios = require('axios')
 
 // Gemini AI proxy for plant identification
 exports.analyzePlant = onCall(async (request) => {
   // Verify user is authenticated
   if (!request.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated')
+    throw new HttpsError('unauthenticated', 'User must be authenticated')
   }
 
   const { imageBase64, mimeType } = request.data
 
   if (!imageBase64) {
-    throw new functions.https.HttpsError('invalid-argument', 'Image data is required')
+    throw new HttpsError('invalid-argument', 'Image data is required')
   }
 
   const apiKey = process.env.GEMINI_API_KEY || functions.config().gemini?.key
   if (!apiKey) {
-    throw new functions.https.HttpsError('failed-precondition', 'Gemini API key not configured')
+    throw new HttpsError('failed-precondition', 'Gemini API key not configured')
   }
 
   try {
@@ -142,21 +147,11 @@ exports.sendDailyReminders = onSchedule(
     timeZone: 'America/Chicago',
   },
   async (event) => {
-    const now = new Date()
-    const currentHour = now.getHours()
-    const currentMinute = now.getMinutes()
-    const currentTime = `${currentHour}:${String(currentMinute).padStart(2, '0')}`
-
-    // Also check 12-hour format
-    const hour12 = currentHour % 12 || 12
-    const ampm = currentHour >= 12 ? 'PM' : 'AM'
-    const currentTime12 = `${hour12}:${String(currentMinute).padStart(2, '0')} ${ampm}`
-
-    logger.info(`Checking reminders at: ${currentTime} (${currentTime12})`)
+    logger.info(`Checking reminders...`)
 
     try {
       // Get all users (we'll filter by notification settings in the loop)
-      const usersSnapshot = await admin.firestore().collection('users').get()
+      const usersSnapshot = await db.collection('users').get()
 
       logger.info(`Found ${usersSnapshot.size} total users, checking for enabled notifications`)
 
@@ -170,18 +165,56 @@ exports.sendDailyReminders = onSchedule(
           return
         }
 
-        const reminderTime = userData.reminderTime || '11:00 AM'
-
-        // Normalize the reminder time for comparison
-        let userReminderTime = reminderTime.trim()
+        const userTimeZone = userData.timeZone || 'America/Chicago'
+        const now = new Date()
+        
+        // Get user's current time parts
+        const formatter = new Intl.DateTimeFormat('en-US', {
+            timeZone: userTimeZone,
+            hour: 'numeric',
+            minute: 'numeric',
+            hour12: false
+        })
+        
+        const parts = formatter.formatToParts(now)
+        const hourPart = parts.find(p => p.type === 'hour').value
+        const minutePart = parts.find(p => p.type === 'minute').value
+        
+        let currentHour = parseInt(hourPart)
+        const currentMinute = parseInt(minutePart)
+        
+        if (currentHour === 24) currentHour = 0
+        
+        // Parse reminder time
+        let reminderHour = 9
+        let reminderMinute = 0
+        const rTime = userData.reminderTime || '09:00'
+        
+        try {
+            if (rTime.includes('AM') || rTime.includes('PM')) {
+                const [t, period] = rTime.split(' ')
+                let [h, m] = t.split(':').map(Number)
+                if (period === 'PM' && h !== 12) h += 12
+                if (period === 'AM' && h === 12) h = 0
+                reminderHour = h
+                reminderMinute = m
+            } else {
+                const [h, m] = rTime.split(':').map(Number)
+                reminderHour = h
+                reminderMinute = m
+            }
+        } catch (e) {
+            logger.error(`Error parsing time for user ${userDoc.id}: ${rTime}`, e)
+            return
+        }
 
         logger.info(
-          `User ${userDoc.id}: reminderTime="${userReminderTime}", current="${currentTime12}"`,
+          `User ${userDoc.id}: Timezone=${userTimeZone}, Current=${currentHour}:${currentMinute}, Reminder=${reminderHour}:${reminderMinute}`,
         )
 
         // Check if current time matches user's reminder time
-        if (userReminderTime === currentTime12 || userReminderTime === currentTime) {
-          logger.info(`Sending reminder to user ${userDoc.id} at ${reminderTime}`)
+        if (currentHour === reminderHour && currentMinute === reminderMinute) {
+          logger.info(`Sending reminder to user ${userDoc.id} at ${rTime}`)
 
           // Get user's FCM tokens
           const fcmTokens = userData.fcmTokens || []
@@ -198,27 +231,28 @@ exports.sendDailyReminders = onSchedule(
             // Send to all tokens
             messages.forEach((message) => {
               sendPromises.push(
-                admin
-                  .messaging()
+                messaging
                   .send(message)
                   .then((response) => {
                     logger.info(`Successfully sent reminder to ${userDoc.id}:`, response)
                   })
                   .catch((error) => {
-                    logger.error(`Error sending to ${userDoc.id}:`, error)
-                    // If token is invalid, remove it
+                    // Check for invalid token errors first
                     if (
                       error.code === 'messaging/invalid-registration-token' ||
                       error.code === 'messaging/registration-token-not-registered'
                     ) {
-                      return admin
-                        .firestore()
+                      logger.info(`Removing invalid token for user ${userDoc.id}`)
+                      return db
                         .collection('users')
                         .doc(userDoc.id)
                         .update({
-                          fcmTokens: admin.firestore.FieldValue.arrayRemove(message.token),
+                          fcmTokens: FieldValue.arrayRemove(message.token),
                         })
                     }
+
+                    // Log actual unexpected errors
+                    logger.error(`Error sending to ${userDoc.id}:`, error)
                   }),
               )
             })
@@ -237,3 +271,71 @@ exports.sendDailyReminders = onSchedule(
     return null
   },
 )
+
+// Manual test function (callable from frontend)
+exports.sendTestNotification = onCall(async (request) => {
+  // Verify user is authenticated
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated')
+  }
+
+  const uid = request.auth.uid
+  
+  try {
+    const userDoc = await db.collection('users').doc(uid).get()
+    
+    if (!userDoc.exists) {
+      throw new HttpsError('not-found', 'User profile not found')
+    }
+
+    const userData = userDoc.data()
+    const tokens = userData.fcmTokens || []
+
+    if (tokens.length === 0) {
+      return { success: false, message: 'No FCM tokens found. Please enable notifications first.' }
+    }
+
+    const results = { success: 0, failure: 0 }
+    const promises = tokens.map(async (token) => {
+      const message = {
+        notification: {
+          title: '🔔 Test Notification',
+          body: 'This is a test from the server! If you see this, notifications are working.',
+        },
+        token: token,
+        data: {
+          type: 'test',
+          timestamp: new Date().toISOString()
+        }
+      }
+
+      try {
+        await messaging.send(message)
+        results.success++
+        return { success: true }
+      } catch (error) {
+        console.error('Error sending test message:', error)
+        results.failure++
+        
+        // Cleanup invalid tokens
+        if (
+          error.code === 'messaging/invalid-registration-token' ||
+          error.code === 'messaging/registration-token-not-registered'
+        ) {
+          await db.collection('users').doc(uid).update({
+            fcmTokens: FieldValue.arrayRemove(token)
+          })
+        }
+        return { success: false, error }
+      }
+    })
+
+    await Promise.all(promises)
+    return results
+
+  } catch (error) {
+    console.error('Error in sendTestNotification:', error)
+    throw new HttpsError('internal', 'Failed to send notification')
+  }
+})
+
