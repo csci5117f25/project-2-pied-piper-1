@@ -279,7 +279,7 @@ const needsWatering = (plant) => {
     ? plant.lastWatered.toDate()
     : new Date(plant.lastWatered)
   const now = new Date()
-  const daysSinceWatering = Math.floor((now - lastWateredDate) / (1000 * 60 * 60 * 24))
+  const daysSinceWatering = Math.round((now - lastWateredDate) / (1000 * 60 * 60 * 24))
 
   // Handle different watering frequencies
   if (plant.wateringFrequency === 'daily') {

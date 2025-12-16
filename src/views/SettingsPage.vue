@@ -455,15 +455,21 @@ const updateNotificationSettings = async (enabled) => {
       } else {
         // Fallback to basic notification permission
         if ('Notification' in window) {
-          await Notification.requestPermission()
+          const permission = await Notification.requestPermission()
+          if (permission === 'granted') {
+             showSuccess.value = true
+             successMessage.value = 'Notifications enabled (local only)'
+          } else {
+             settings.value.notifications = false
+             showSuccess.value = true
+             successMessage.value = 'Permission denied'
+          }
         }
-        showSuccess.value = true
-        successMessage.value = 'Notifications enabled'
       }
     } catch (error) {
       console.error('Error enabling notifications:', error)
       showSuccess.value = true
-      successMessage.value = 'Notifications enabled (basic mode)'
+      successMessage.value = 'Error enabling notifications'
     }
   } else {
     // Disable notifications
@@ -494,6 +500,17 @@ const saveNotificationDetails = async () => {
 const sendTestNotificationHandler = async () => {
   testingNotification.value = true
   try {
+    // Ensure we have a token first
+    if (user.value) {
+       const token = await requestPermissionAndToken(user.value.uid)
+       if (!token) {
+          showSuccess.value = true
+          successMessage.value = 'Please enable notifications first'
+          testingNotification.value = false
+          return
+       }
+    }
+
     // Get user's first plant for testing
     const plantsQuery = query(
       collection(db, 'plants'),
@@ -610,12 +627,16 @@ const updateTemperatureUnit = async (unit) => {
 
 const saveReminderTime = async () => {
   settings.value.reminderTime = selectedTime.value
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
 
   // Save to Firestore
   if (user.value) {
     try {
       const userRef = doc(db, 'users', user.value.uid)
-      await updateDoc(userRef, { reminderTime: selectedTime.value })
+      await updateDoc(userRef, { 
+        reminderTime: selectedTime.value,
+        timeZone
+      })
     } catch (error) {
       console.error('Error saving reminder time:', error)
     }

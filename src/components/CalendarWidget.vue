@@ -153,7 +153,7 @@ const needsWateringOnDate = (plant, targetDate) => {
   lastWateredDate.setHours(0, 0, 0, 0)
   target.setHours(0, 0, 0, 0)
 
-  const daysSinceWatering = Math.floor((target - lastWateredDate) / (1000 * 60 * 60 * 24))
+  const daysSinceWatering = Math.round((target - lastWateredDate) / (1000 * 60 * 60 * 24))
 
   // Check if the target date falls exactly on a watering day
   const today = new Date()
@@ -243,25 +243,27 @@ const needsFertilizingOnDate = (plant, targetDate) => {
   target.setHours(0, 0, 0, 0)
   const today = new Date()
   today.setHours(0, 0, 0, 0)
+  const isToday = target.getTime() === today.getTime()
 
-  // Only show on today or past dates that are due
-  if (target > today) return false
-
-  if (!plant.lastFertilized) return true // Never fertilized, due now
+  if (!plant.lastFertilized) {
+    // If never fertilized, it's due today
+    return isToday
+  }
 
   const lastDate = plant.lastFertilized.toDate
     ? plant.lastFertilized.toDate()
     : new Date(plant.lastFertilized)
   lastDate.setHours(0, 0, 0, 0)
 
-  // Calculate the exact next due date using the same method as PlantDetailPage
-  const nextDueDate = new Date(lastDate)
-  const totalDays = weeks * 7
-  nextDueDate.setDate(lastDate.getDate() + totalDays)
-  nextDueDate.setHours(0, 0, 0, 0)
+  const diffTime = target.getTime() - lastDate.getTime()
+  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24))
+  const intervalDays = weeks * 7
 
-  // Check if target date matches the next due date exactly
-  return target.getTime() === nextDueDate.getTime()
+  // If overdue, show on today
+  if (isToday && diffDays >= intervalDays) return true
+
+  // Show on future recurring dates
+  return diffDays >= intervalDays && diffDays % intervalDays === 0
 }
 
 // Check if a plant needs maintenance on a specific date
@@ -279,25 +281,27 @@ const needsMaintenanceOnDate = (plant, targetDate) => {
   target.setHours(0, 0, 0, 0)
   const today = new Date()
   today.setHours(0, 0, 0, 0)
+  const isToday = target.getTime() === today.getTime()
 
-  // Only show on today or past dates that are due
-  if (target > today) return false
-
-  if (!plant.lastMaintenance) return true // Never maintained, due now
+  if (!plant.lastMaintenance) {
+    // If never maintained, it's due today
+    return isToday
+  }
 
   const lastDate = plant.lastMaintenance.toDate
     ? plant.lastMaintenance.toDate()
     : new Date(plant.lastMaintenance)
   lastDate.setHours(0, 0, 0, 0)
 
-  // Calculate the exact next due date using the same method as PlantDetailPage
-  const nextDueDate = new Date(lastDate)
-  const totalDays = weeks * 7
-  nextDueDate.setDate(lastDate.getDate() + totalDays)
-  nextDueDate.setHours(0, 0, 0, 0)
+  const diffTime = target.getTime() - lastDate.getTime()
+  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24))
+  const intervalDays = weeks * 7
 
-  // Check if target date matches the next due date exactly
-  return target.getTime() === nextDueDate.getTime()
+  // If overdue, show on today
+  if (isToday && diffDays >= intervalDays) return true
+
+  // Show on future recurring dates
+  return diffDays >= intervalDays && diffDays % intervalDays === 0
 }
 
 // Get fertilizer count for a date

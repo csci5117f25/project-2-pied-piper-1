@@ -731,12 +731,20 @@ const getLightText = (requirement) => {
 
 const getFertilizerText = (frequency) => {
   if (!frequency) return 'Not set'
+  if (frequency === 'custom') {
+    const weeks = plant.value?.customFertilizerWeeks
+    return weeks ? `Every ${weeks} week${weeks > 1 ? 's' : ''}` : 'Custom'
+  }
   const option = fertilizerOptions.find((opt) => opt.value === frequency)
   return option ? option.title : frequency
 }
 
 const getMaintenanceText = (frequency) => {
   if (!frequency) return 'Not set'
+  if (frequency === 'custom') {
+    const weeks = plant.value?.customMaintenanceWeeks
+    return weeks ? `Every ${weeks} week${weeks > 1 ? 's' : ''}` : 'Custom'
+  }
   const option = maintenanceOptions.find((opt) => opt.value === frequency)
   return option ? option.title : frequency
 }
@@ -773,7 +781,7 @@ const isFertilizerDue = computed(() => {
   const lastDate = plant.value.lastFertilized.toDate
     ? plant.value.lastFertilized.toDate()
     : new Date(plant.value.lastFertilized)
-  const daysSince = Math.floor((Date.now() - lastDate.getTime()) / (1000 * 60 * 60 * 24))
+  const daysSince = Math.round((Date.now() - lastDate.getTime()) / (1000 * 60 * 60 * 24))
   return daysSince >= weeks * 7
 })
 
@@ -794,7 +802,7 @@ const isMaintenanceDue = computed(() => {
   const lastDate = plant.value.lastMaintenance.toDate
     ? plant.value.lastMaintenance.toDate()
     : new Date(plant.value.lastMaintenance)
-  const daysSince = Math.floor((Date.now() - lastDate.getTime()) / (1000 * 60 * 60 * 24))
+  const daysSince = Math.round((Date.now() - lastDate.getTime()) / (1000 * 60 * 60 * 24))
   return daysSince >= weeks * 7
 })
 
