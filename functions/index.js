@@ -5,12 +5,92 @@
 
 const functions = require('firebase-functions')
 const { onSchedule } = require('firebase-functions/v2/scheduler')
+const { onCall } = require('firebase-functions/v2/https')
 const { logger } = require('firebase-functions/v2')
 const admin = require('firebase-admin')
 
 // Initialize admin once
 admin.initializeApp()
 const axios = require('axios')
+
+// Gemini AI proxy for plant identification
+exports.analyzePlant = onCall(async (request) => {
+  // Verify user is authenticated
+  if (!request.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated')
+  }
+
+  const { imageBase64, mimeType } = request.data
+
+  if (!imageBase64) {
+    throw new functions.https.HttpsError('invalid-argument', 'Image data is required')
+  }
+
+  const apiKey = process.env.GEMINI_API_KEY || functions.config().gemini?.key
+  if (!apiKey) {
+    throw new functions.https.HttpsError('failed-precondition', 'Gemini API key not configured')
+  }
+
+  try {
+    const response = await axios.post(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`,
+      {
+        contents: [
+          {
+            parts: [
+              {
+                text: `You are an expert botanist and plant care specialist. Analyze this plant image and provide detailed information.
+
+IMPORTANT: Respond ONLY with valid JSON in exactly this format, no other text:
+{
+  "name": "Common name of the plant",
+  "scientificName": "Scientific/botanical name",
+  "type": "Type of plant (e.g., Succulent, Tropical, Flowering, etc.)",
+  "waterFrequency": number (days between watering, e.g., 7),
+  "sunlight": "Light requirement (Low, Medium, High, or Direct)",
+  "temperature": "Ideal temperature range",
+  "humidity": "Humidity preference (Low, Medium, High)",
+  "soilType": "Recommended soil type",
+  "fertilizerFrequency": "never, monthly, bimonthly, quarterly, seasonal, biannually, annually",
+  "maintenanceFrequency": "never, monthly, bimonthly, quarterly, seasonal, biannually, annually",
+  "toxicity": "Pet safety information",
+  "growthRate": "Growth rate (Slow, Medium, Fast)",
+  "matureSize": "Expected mature size",
+  "specialCare": "Any special care instructions or tips",
+  "commonIssues": "Common problems and solutions"
+}
+
+Be precise with the waterFrequency (number of days). Choose appropriate frequencies for fertilizer and maintenance from the exact options listed.`,
+              },
+              {
+                inline_data: {
+                  mime_type: mimeType || 'image/jpeg',
+                  data: imageBase64,
+                },
+              },
+            ],
+          },
+        ],
+      },
+    )
+
+    const text = response.data.candidates[0].content.parts[0].text
+    const jsonMatch = text.match(/\{[\s\S]*\}/)
+
+    if (jsonMatch) {
+      const plantData = JSON.parse(jsonMatch[0])
+      return plantData
+    } else {
+      throw new Error('Invalid response format from Gemini')
+    }
+  } catch (error) {
+    console.error('Gemini API error:', error)
+    throw new functions.https.HttpsError(
+      'unavailable',
+      'Plant identification service temporarily unavailable',
+    )
+  }
+})
 
 // OpenWeatherMap API proxy
 exports.getWeather = functions.https.onCall(async (data, context) => {
