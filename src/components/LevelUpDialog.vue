@@ -170,6 +170,7 @@ const getParticleStyle = (index) => {
   z-index: 2;
   padding: 32px 24px 16px;
   text-align: center;
+  overflow-y: hidden !important;
 }
 
 .celebration-icon {
@@ -216,7 +217,7 @@ const getParticleStyle = (index) => {
   align-items: center;
   justify-content: center;
   gap: 24px;
-  margin: 32px 0;
+  margin: 24px 0;
   flex-wrap: wrap;
 }
 

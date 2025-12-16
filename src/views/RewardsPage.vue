@@ -96,9 +96,17 @@
         <div class="achievement-icon-wrapper">
           <div
             :class="['achievement-icon', { locked: !achievement.unlocked }]"
-            :style="achievement.unlocked ? { background: achievement.color } : {}"
+            :style="
+              achievement.unlocked
+                ? { backgroundColor: `rgb(var(--v-theme-${achievement.color}))` }
+                : {}
+            "
           >
-            <v-icon size="28" :color="achievement.unlocked ? 'white' : 'grey'">
+            <v-icon
+              size="28"
+              :color="achievement.unlocked ? 'white' : undefined"
+              :class="{ 'text-medium-emphasis': !achievement.unlocked }"
+            >
               {{ achievement.icon }}
             </v-icon>
           </div>
@@ -415,7 +423,7 @@ const processAchievementsSnapshot = (achievementsSnap) => {
       today.setHours(0, 0, 0, 0)
       const lastDate = new Date(lastCompletedDate)
       lastDate.setHours(0, 0, 0, 0)
-      const daysDiff = Math.floor((today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24))
+      const daysDiff = Math.round((today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24))
 
       if (daysDiff === 0 || daysDiff === 1) {
         wateringStreak = progress
@@ -731,7 +739,7 @@ const loadRecentActivities = async (userId) => {
 /* Achievements Grid */
 .achievements-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 16px;
   margin-bottom: 32px;
 }
