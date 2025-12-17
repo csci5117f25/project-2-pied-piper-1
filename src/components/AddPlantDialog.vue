@@ -418,7 +418,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { collection, addDoc, doc, updateDoc, increment, getDoc } from 'firebase/firestore'
 import { handlePlantAdded, handlePlantPhotographed } from '@/utils/achievements'
-import { logAchievementUnlocked } from '@/services/activityService'
+import { logAchievementUnlocked, logActivity, ACTIVITY_TYPES } from '@/services/activityService'
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { onAuthStateChanged } from 'firebase/auth'
 import { auth, db, storage } from '@/firebase'
@@ -823,36 +823,22 @@ const savePlant = async () => {
 
       // Log activity (non-critical, don't fail if this fails)
       try {
-        await addDoc(collection(db, 'users', user.value.uid, 'activities'), {
-          type: 'plant_added',
+        await logActivity(user.value.uid, ACTIVITY_TYPES.PLANT_ADDED, {
           title: 'Added New Plant',
           description: `Welcome ${plantData.nickname} to your collection!`,
           plantId: docRef.id,
-          timestamp: new Date(),
-          userId: user.value.uid,
+          plantName: plantData.nickname,
           xpEarned: 10,
         })
       } catch (err) {
         console.error('Failed to log activity:', err)
       }
 
-      // Get current plant count BEFORE incrementing
-      let currentPlantCount = 0
-      try {
-        const userRef = doc(db, 'users', user.value.uid)
-        const userSnap = await getDoc(userRef)
-        currentPlantCount = userSnap.exists() ? userSnap.data().numberOfPlants || 0 : 0
-
-        // Now increment
-        await updateDoc(userRef, { numberOfPlants: increment(1) })
-      } catch (err) {
-        console.error('Failed to increment user.numberOfPlants:', err)
-      }
-
       // Update achievements for this user - pass the NEW count (current + 1)
+      // Note: handlePlantAdded will also update the user.numberOfPlants field based on actual count
       let allUnlocks = []
       try {
-        const plantUnlocks = await handlePlantAdded(user.value.uid, currentPlantCount + 1)
+        const plantUnlocks = await handlePlantAdded(user.value.uid)
 
         // If plant has a photo, also check photo achievement
         let photoUnlock = null

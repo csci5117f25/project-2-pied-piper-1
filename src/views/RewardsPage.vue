@@ -230,8 +230,7 @@ const levels = LEVEL_THRESHOLDS
 const totalXP = computed(() => userXP.value)
 
 const currentLevel = computed(() => {
-  const levelInfo = levels.find((l) => l.level === userLevel.value)
-  return levelInfo || levels[0]
+  let level = levels[0]
   for (const l of levels) {
     if (totalXP.value >= l.xpRequired) {
       level = l
@@ -388,6 +387,7 @@ onMounted(() => {
 onUnmounted(() => {
   if (unsubscribePlants) unsubscribePlants()
   if (unsubscribeAchievements) unsubscribeAchievements()
+  if (unsubscribeUser) unsubscribeUser()
 })
 
 // Helper to parse Firestore Timestamp or ISO string
@@ -405,6 +405,7 @@ const parseUnlockedDate = (val) => {
 // Store unsubscribe functions
 let unsubscribePlants = null
 let unsubscribeAchievements = null
+let unsubscribeUser = null
 
 // Process achievements snapshot data
 const processAchievementsSnapshot = (achievementsSnap) => {
@@ -489,6 +490,21 @@ const setupRealtimeListeners = (userId) => {
       const { unlockedCount, wateringStreak } = processAchievementsSnapshot(snapshot)
       userStats.value.achievementsUnlocked = unlockedCount
       userStats.value.wateringStreak = wateringStreak
+    })
+
+    // Listen to user document for XP and Level updates
+    const userRef = doc(db, 'users', userId)
+    unsubscribeUser = onSnapshot(userRef, (doc) => {
+      if (doc.exists()) {
+        const userData = doc.data()
+        userXP.value = userData.xp || 0
+        userLevel.value = userData.level || 1
+
+        // Calculate today's task XP
+        const tasksToday = userData.tasksCompletedToday || []
+        const taskCount = tasksToday.filter((t) => !t.endsWith('_bonus')).length
+        todayTasksXP.value = taskCount * 30
+      }
     })
   } catch (error) {
     console.error('Error setting up real-time listeners:', error)

@@ -196,7 +196,7 @@ import {
   handlePlantWatered,
   handleAllPlantsHealthy,
 } from '@/utils/achievements'
-import { logPlantWatered, logAchievementUnlocked } from '@/services/activityService'
+import { logPlantWatered, logAchievementUnlocked, logActivity, ACTIVITY_TYPES } from '@/services/activityService'
 import { auth, db, storage } from '@/firebase'
 import AddPlantDialog from '@/components/AddPlantDialog.vue'
 import EditPlantDialog from '@/components/EditPlantDialog.vue'
@@ -438,24 +438,17 @@ const confirmDelete = async () => {
     // Run background operations (non-blocking)
     const uid = auth.currentUser?.uid
     if (uid) {
-      // Decrement user's plant count
-      updateDoc(doc(db, 'users', uid), { numberOfPlants: increment(-1) }).catch((err) => {
-        console.error('Failed to decrement user.numberOfPlants:', err)
-      })
-
-      // Update achievements for plant removal
-      handlePlantRemoved(uid, plantToDeleteData.id).catch((err) => {
+      // Update achievements for plant removal (also updates numberOfPlants)
+      handlePlantRemoved(uid).catch((err) => {
         console.error('Failed to update achievements after plant deletion:', err)
       })
 
       // Log deletion activity
-      addDoc(collection(db, 'users', uid, 'activities'), {
-        type: 'plant_deleted',
+      logActivity(uid, ACTIVITY_TYPES.PLANT_DELETED, {
         title: 'Plant Deleted',
         description: `Deleted ${plantToDeleteData.nickname} from your collection`,
         plantId: plantToDeleteData.id,
-        timestamp: new Date(),
-        userId: uid,
+        plantName: plantToDeleteData.nickname,
         xpEarned: 0,
       }).catch((err) => {
         console.error('Failed to log plant deletion activity:', err)

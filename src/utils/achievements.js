@@ -30,6 +30,10 @@ export async function handlePlantAdded(userId, plantCount = null) {
     
     console.log('handlePlantAdded: user', userId, 'actualCount=', count)
 
+    // Update user's plant count to match actual count
+    const userRef = doc(db, 'users', userId)
+    await setDoc(userRef, { numberOfPlants: count }, { merge: true })
+
     // Update first-plant achievement - only when count is exactly 1 (first plant)
     const firstRef = doc(db, 'users', userId, 'achievements', 'first-plant')
     const firstSnap = await getDoc(firstRef)
@@ -127,6 +131,10 @@ export async function handlePlantRemoved(userId) {
     const count = snapshot.size
     
     console.log('handlePlantRemoved: user', userId, 'actualCount=', count)
+
+    // Update user's plant count to match actual count
+    const userRef = doc(db, 'users', userId)
+    await setDoc(userRef, { numberOfPlants: count }, { merge: true })
 
     const collectorRef = doc(db, 'users', userId, 'achievements', 'plant-collector')
     const target = 5
@@ -876,26 +884,35 @@ export async function handleTaskCompleted(userId, taskType, plantId) {
       }
 
       const newTotalXP = currentXP + xpEarned
+      
+      // Calculate level up inside transaction
+      const currentLevel = userData.level || 1
+      const newLevel = calculateLevel(newTotalXP)
+      let levelUp = null
+
+      if (newLevel > currentLevel) {
+        levelUp = {
+          oldLevel: currentLevel,
+          newLevel,
+          oldLevelInfo: getLevelInfo(currentLevel),
+          newLevelInfo: getLevelInfo(newLevel),
+        }
+      }
 
       // Update user document
       transaction.update(userRef, {
         xp: newTotalXP,
+        level: newLevel,
         tasksCompletedToday,
       })
 
       return {
         xpEarned,
         totalXP: newTotalXP,
-        levelUp: null, // Will check after transaction
+        levelUp,
         allThreeCompleted,
       }
     })
-
-    // Check for level up outside transaction
-    if (result.xpEarned > 0) {
-      const levelUp = await checkLevelUp(userId, result.totalXP)
-      result.levelUp = levelUp
-    }
 
     return result
   } catch (error) {

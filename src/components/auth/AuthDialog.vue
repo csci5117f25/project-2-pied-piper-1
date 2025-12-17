@@ -305,21 +305,32 @@ const termsRules = [(v) => !!v || 'You must accept the terms and conditions']
 const createUserProfile = async (user, displayName = null, isNewUser = false) => {
   try {
     const userRef = doc(db, 'users', user.uid)
+    
+    // Check if doc exists if we think it's not a new user
+    // This handles the case where email login happens but doc is missing
+    let docExists = !isNewUser
+    if (!isNewUser) {
+        const docSnap = await getDoc(userRef)
+        docExists = docSnap.exists()
+    }
+    
+    const shouldInitialize = isNewUser || !docExists
+
     const profileData = {
       uid: user.uid,
       email: user.email,
       displayName: displayName || user.displayName || signupName.value,
       photoURL: user.photoURL || null,
-      numberOfPlants: 0,
       lastLogin: serverTimestamp(),
-      xp: 0,
-      level: 1,
-      tasksCompletedToday: [],
-      lastTaskResetDate: serverTimestamp(),
     }
 
-    // Only set onboardingCompleted for new users
-    if (isNewUser) {
+    // Only set initial values for new users or if profile is missing
+    if (shouldInitialize) {
+      profileData.numberOfPlants = 0
+      profileData.xp = 0
+      profileData.level = 1
+      profileData.tasksCompletedToday = []
+      profileData.lastTaskResetDate = serverTimestamp()
       profileData.onboardingCompleted = false
       profileData.createdAt = serverTimestamp()
     }

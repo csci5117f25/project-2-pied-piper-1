@@ -252,36 +252,6 @@
       </div>
 
       <v-list class="pa-0">
-        <v-list-item @click="openHelp">
-          <template #prepend>
-            <v-icon>mdi-book-open-page-variant-outline</v-icon>
-          </template>
-
-          <v-list-item-title>Help & FAQ</v-list-item-title>
-          <v-list-item-subtitle>Get answers to common questions</v-list-item-subtitle>
-
-          <template #append>
-            <v-icon size="18">mdi-open-in-new</v-icon>
-          </template>
-        </v-list-item>
-
-        <v-divider />
-
-        <v-list-item @click="sendFeedback">
-          <template #prepend>
-            <v-icon>mdi-message</v-icon>
-          </template>
-
-          <v-list-item-title>Send Feedback</v-list-item-title>
-          <v-list-item-subtitle>Help us improve the app</v-list-item-subtitle>
-
-          <template #append>
-            <v-icon size="18">mdi-chevron-right</v-icon>
-          </template>
-        </v-list-item>
-
-        <v-divider />
-
         <v-list-item>
           <template #prepend>
             <v-icon>mdi-information-outline</v-icon>
@@ -398,6 +368,7 @@ import {
   where,
   getDocs,
   limit,
+  deleteDoc,
 } from 'firebase/firestore'
 import { auth, db } from '@/firebase'
 import {
@@ -666,25 +637,47 @@ const saveProfile = async () => {
 const deleteAccount = async () => {
   try {
     if (user.value) {
+      const uid = user.value.uid
+
+      // 1. Delete user's plants
+      const plantsQuery = query(collection(db, 'plants'), where('userId', '==', uid))
+      const plantsSnapshot = await getDocs(plantsQuery)
+      const deletePlantPromises = plantsSnapshot.docs.map(doc => deleteDoc(doc.ref))
+      await Promise.all(deletePlantPromises)
+
+      // 2. Delete user's activities
+      const activitiesRef = collection(db, 'users', uid, 'activities')
+      const activitiesSnapshot = await getDocs(activitiesRef)
+      const deleteActivityPromises = activitiesSnapshot.docs.map(doc => deleteDoc(doc.ref))
+      await Promise.all(deleteActivityPromises)
+
+      // 3. Delete user's achievements
+      const achievementsRef = collection(db, 'users', uid, 'achievements')
+      const achievementsSnapshot = await getDocs(achievementsRef)
+      const deleteAchievementPromises = achievementsSnapshot.docs.map(doc => deleteDoc(doc.ref))
+      await Promise.all(deleteAchievementPromises)
+
+      // 4. Delete user document
+      await deleteDoc(doc(db, 'users', uid))
+
+      // 5. Delete Auth user
       await deleteUser(user.value)
       router.push('/')
     }
   } catch (error) {
     console.error('Error deleting account:', error)
-    showSuccess.value = true
-    successMessage.value = 'Error deleting account. Please try again.'
+    if (error.code === 'auth/requires-recent-login') {
+      showDeleteDialog.value = false
+      showSuccess.value = true
+      successMessage.value = 'Security: Please sign out and sign in again to delete account'
+    } else {
+      showSuccess.value = true
+      successMessage.value = 'Error deleting account. Please try again.'
+    }
   }
 }
 
 // Support actions
-const openHelp = () => {
-  window.open('https://plantcaretracker.com/help', '_blank')
-}
-
-const sendFeedback = () => {
-  window.open('mailto:umesh006@umn.edu?subject=Feedback_Plant_Tacker', '_blank')
-}
-
 // Logout
 const logout = async () => {
   try {

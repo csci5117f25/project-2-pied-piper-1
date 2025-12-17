@@ -21,7 +21,7 @@
         <!-- Achievement Unlocked Text -->
         <div class="unlock-text">
           <h2 class="text-h4 font-weight-bold mb-2">ACHIEVEMENT UNLOCKED!</h2>
-          <p class="text-subtitle-1 mb-6">You've reached a new milestone!</p>
+          <p class="text-subtitle-1 mb-4">You've reached a new milestone!</p>
         </div>
 
         <!-- Achievement Badge -->
@@ -150,13 +150,13 @@ const getParticleStyle = (index) => {
 .achievement-content {
   position: relative;
   z-index: 2;
-  padding: 48px 24px 24px;
+  padding: 32px 24px 20px;
   text-align: center;
 }
 
 .celebration-icon {
   animation: icon-pop 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 @keyframes icon-pop {
@@ -199,8 +199,8 @@ const getParticleStyle = (index) => {
   backdrop-filter: blur(10px);
   border: 2px solid rgba(255, 255, 255, 0.3);
   border-radius: 20px;
-  padding: 32px 24px;
-  margin: 32px auto;
+  padding: 24px 20px;
+  margin: 20px auto;
   max-width: 400px;
   animation: badge-appear 1s cubic-bezier(0.68, -0.55, 0.265, 1.55) 0.4s backwards;
 }
@@ -309,8 +309,8 @@ const getParticleStyle = (index) => {
   background: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(10px);
   border-radius: 12px;
-  padding: 16px;
-  margin-top: 24px;
+  padding: 12px 16px;
+  margin-top: 20px;
 }
 
 .close-btn {

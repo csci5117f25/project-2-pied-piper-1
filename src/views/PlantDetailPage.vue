@@ -305,6 +305,8 @@ import {
   logPlantWatered,
   logAchievementUnlocked,
   logPlantPhotoAdded,
+  logActivity,
+  ACTIVITY_TYPES,
 } from '@/services/activityService'
 import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
 import { onAuthStateChanged } from 'firebase/auth'
@@ -513,20 +515,11 @@ const deletePlant = async () => {
 
     const plantRef = doc(db, 'plants', route.params.id)
     await deleteDoc(plantRef)
-    // Decrement user's plant count
+    
+    // Update achievements for plant removal (also updates numberOfPlants)
     try {
       const uid = auth.currentUser?.uid
-      if (uid) {
-        await updateDoc(doc(db, 'users', uid), { numberOfPlants: increment(-1) })
-      }
-    } catch (err) {
-      console.error('Failed to decrement user.numberOfPlants:', err)
-    }
-
-    // Update achievements for plant removal
-    try {
-      const uid = auth.currentUser?.uid
-      if (uid) await handlePlantRemoved(uid, route.params.id)
+      if (uid) await handlePlantRemoved(uid)
     } catch (err) {
       console.error('Failed to update achievements after plant deletion:', err)
     }
@@ -535,13 +528,11 @@ const deletePlant = async () => {
     try {
       const uid = auth.currentUser?.uid
       if (uid) {
-        await addDoc(collection(db, 'users', uid, 'activities'), {
-          type: 'plant_deleted',
+        await logActivity(uid, ACTIVITY_TYPES.PLANT_DELETED, {
           title: 'Plant Deleted',
           description: `Deleted ${plant.value?.nickname || ''} from your collection`,
           plantId: route.params.id,
-          timestamp: new Date(),
-          userId: uid,
+          plantName: plant.value?.nickname,
           xpEarned: 0,
         })
       }
