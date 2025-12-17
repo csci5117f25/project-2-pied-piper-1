@@ -37,6 +37,10 @@ export async function getCurrentWeather(lat, lon) {
     // Use Cloud Function only if authenticated, otherwise fallback to direct API
     if ((USE_CLOUD_FUNCTIONS || !API_KEY) && isAuthenticated) {
       try {
+        // Ensure auth token is fresh before calling
+        if (auth.currentUser) {
+          await auth.currentUser.getIdToken(true)
+        }
         const result = await getWeatherFunction({ lat, lon, type: 'current' })
         data = result.data
       } catch (error) {
@@ -108,6 +112,10 @@ export async function getWeatherForecast(lat, lon) {
     // Use Cloud Function only if authenticated, otherwise fallback to direct API
     if ((USE_CLOUD_FUNCTIONS || !API_KEY) && isAuthenticated) {
       try {
+        // Ensure auth token is fresh before calling
+        if (auth.currentUser) {
+          await auth.currentUser.getIdToken(true)
+        }
         const result = await getWeatherFunction({ lat, lon, type: 'forecast' })
         data = result.data
       } catch (error) {
