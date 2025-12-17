@@ -1,0 +1,417 @@
+/*
+ * Plant Care Tracker - Modern UI Global Styles
+ * Inspired by DeepMind & OpenAI design systems
+ */
+
+/* ============================================
+   CSS Custom Properties (Design Tokens)
+   ============================================ */
+
+:root {
+  /* Typography */
+  --font-display: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  /* Font Sizes - Fluid Typography Scale */
+  --text-xs: 0.75rem; /* 12px */
+  --text-sm: 0.875rem; /* 14px */
+  --text-base: 1rem; /* 16px */
+  --text-lg: 1.125rem; /* 18px */
+  --text-xl: 1.25rem; /* 20px */
+  --text-2xl: 1.5rem; /* 24px */
+  --text-3xl: 1.875rem; /* 30px */
+  --text-4xl: 2.25rem; /* 36px */
+  --text-5xl: 3rem; /* 48px */
+
+  /* Font Weights */
+  --font-light: 300;
+  --font-normal: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
+  --font-extrabold: 800;
+
+  /* Line Heights */
+  --leading-tight: 1.2;
+  --leading-snug: 1.375;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.625;
+
+  /* Spacing Scale */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-20: 5rem;
+
+  /* Border Radius */
+  --radius-sm: 0.375rem; /* 6px */
+  --radius-md: 0.5rem; /* 8px */
+  --radius-lg: 0.75rem; /* 12px */
+  --radius-xl: 1rem; /* 16px */
+  --radius-2xl: 1.5rem; /* 24px */
+  --radius-full: 9999px;
+
+  /* Shadows - Modern Diffused Style */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.07);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.08);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.08), 0 8px 10px -6px rgb(0 0 0 / 0.08);
+  --shadow-glow: 0 0 40px rgba(5, 150, 105, 0.15);
+
+  /* Glassmorphism */
+  --glass-bg: rgba(255, 255, 255, 0.8);
+  --glass-border: rgba(255, 255, 255, 0.18);
+  --glass-blur: blur(20px);
+
+  /* Transitions */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --duration-slow: 350ms;
+
+  /* Z-Index Scale */
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-modal: 300;
+  --z-tooltip: 400;
+}
+
+/* Dark Mode Variables */
+[data-theme='dark'],
+.v-theme--dark {
+  --glass-bg: rgba(30, 41, 59, 0.8);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --shadow-glow: 0 0 40px rgba(16, 185, 129, 0.2);
+}
+
+/* ============================================
+   Base Styles
+   ============================================ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  font-family: var(--font-body);
+  font-weight: var(--font-normal);
+  line-height: var(--leading-normal);
+  background-color: rgb(var(--v-theme-background));
+  color: rgb(var(--v-theme-on-surface));
+  transition:
+    background-color var(--duration-slow) var(--ease-out),
+    color var(--duration-slow) var(--ease-out);
+}
+
+/* Display Headings - Manrope */
+h1,
+h2,
+h3,
+.text-h1,
+.text-h2,
+.text-h3,
+.display-heading {
+  font-family: var(--font-display);
+  font-weight: var(--font-bold);
+  line-height: var(--leading-tight);
+  letter-spacing: -0.02em;
+}
+
+/* ============================================
+   Modern Component Utilities
+   ============================================ */
+
+/* Glass Card Effect */
+.glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Subtle Card (No Glass) */
+.subtle-card {
+  background: rgb(var(--v-theme-surface));
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.06);
+  box-shadow: var(--shadow-md);
+  transition: all var(--duration-normal) var(--ease-out);
+}
+
+.subtle-card:hover {
+  box-shadow: var(--shadow-xl);
+  transform: translateY(-2px);
+}
+
+/* Glow Effect for Primary Elements */
+.glow-primary {
+  box-shadow: var(--shadow-glow);
+}
+
+/* Modern Button Styles */
+.btn-modern {
+  font-family: var(--font-body);
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.01em;
+  transition: all var(--duration-normal) var(--ease-spring);
+}
+
+.btn-modern:hover {
+  transform: translateY(-1px);
+}
+
+.btn-modern:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* Gradient Text */
+.gradient-text {
+  background: linear-gradient(135deg, #059669 0%, #10b981 50%, #34d399 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Animated Gradient Background */
+.animated-gradient-bg {
+  background: linear-gradient(
+    -45deg,
+    rgba(5, 150, 105, 0.1),
+    rgba(16, 185, 129, 0.05),
+    rgba(110, 231, 183, 0.1),
+    rgba(5, 150, 105, 0.05)
+  );
+  background-size: 400% 400%;
+  animation: gradient-shift 15s ease infinite;
+}
+
+@keyframes gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Floating Animation */
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.float-animation {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* Pulse Glow Animation */
+@keyframes pulse-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 20px rgba(5, 150, 105, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(5, 150, 105, 0.4);
+  }
+}
+
+.pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* ============================================
+   Skeleton Loader
+   ============================================ */
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(var(--v-theme-on-surface), 0.06) 25%,
+    rgba(var(--v-theme-on-surface), 0.12) 50%,
+    rgba(var(--v-theme-on-surface), 0.06) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s ease-in-out infinite;
+  border-radius: var(--radius-md);
+}
+
+@keyframes skeleton-loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* ============================================
+   List Stagger Animation
+   ============================================ */
+
+.stagger-enter-active {
+  transition: all var(--duration-slow) var(--ease-out);
+}
+
+.stagger-enter-from {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+/* ============================================
+   Improved Focus States (A11y)
+   ============================================ */
+
+:focus-visible {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: 2px;
+}
+
+/* ============================================
+   Scrollbar Styling
+   ============================================ */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(var(--v-theme-on-surface), 0.2);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--v-theme-on-surface), 0.3);
+}
+
+/* ============================================
+   Vuetify Overrides for Modern Look
+   ============================================ */
+
+/* Cards */
+.v-card {
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.06) !important;
+  transition: all var(--duration-normal) var(--ease-out) !important;
+}
+
+.v-card:not(.no-hover):hover {
+  box-shadow: var(--shadow-xl) !important;
+}
+
+/* Buttons */
+.v-btn {
+  font-family: var(--font-body) !important;
+  font-weight: var(--font-semibold) !important;
+  letter-spacing: 0.01em !important;
+  text-transform: none !important;
+  transition: all var(--duration-normal) var(--ease-spring) !important;
+}
+
+.v-btn:not(.v-btn--icon):hover {
+  transform: translateY(-1px);
+}
+
+.v-btn:active {
+  transform: scale(0.98) !important;
+}
+
+/* Text Fields */
+.v-field {
+  border-radius: var(--radius-lg) !important;
+}
+
+.v-field__outline {
+  --v-field-border-opacity: 0.15;
+}
+
+.v-field--focused .v-field__outline {
+  --v-field-border-opacity: 1;
+}
+
+/* Chips */
+.v-chip {
+  font-weight: var(--font-medium) !important;
+}
+
+/* Dialogs */
+.v-dialog > .v-overlay__content > .v-card {
+  border-radius: var(--radius-2xl) !important;
+}
+
+/* Navigation Drawer */
+.v-navigation-drawer {
+  border-right: none !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+
+/* Bottom Navigation */
+.v-bottom-navigation {
+  border-top: 1px solid rgba(var(--v-theme-on-surface), 0.06) !important;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* App Bar */
+.v-app-bar {
+  backdrop-filter: var(--glass-blur) !important;
+  -webkit-backdrop-filter: var(--glass-blur) !important;
+}
+
+/* Lists */
+.v-list-item {
+  border-radius: var(--radius-lg) !important;
+  margin: 2px 8px !important;
+  transition: all var(--duration-fast) var(--ease-out) !important;
+}
+
+/* ============================================
+   Responsive Typography
+   ============================================ */
+
+@media (max-width: 600px) {
+  :root {
+    --text-4xl: 1.875rem;
+    --text-5xl: 2.25rem;
+  }
+}
+
+/* ============================================
+   Reduced Motion Preference
+   ============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

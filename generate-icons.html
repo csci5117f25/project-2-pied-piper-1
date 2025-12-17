@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Generate PWA Icons</title>
+    <style>
+      body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        max-width: 800px;
+        margin: 50px auto;
+        padding: 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+      }
+      .container {
+        background: rgba(255, 255, 255, 0.95);
+        padding: 30px;
+        border-radius: 15px;
+        color: #333;
+      }
+      h1 {
+        color: #4caf50;
+        text-align: center;
+      }
+      button {
+        background: #4caf50;
+        color: white;
+        border: none;
+        padding: 15px 30px;
+        font-size: 16px;
+        border-radius: 8px;
+        cursor: pointer;
+        margin: 10px 5px;
+        transition: all 0.3s;
+      }
+      button:hover {
+        background: #45a049;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      }
+      .preview {
+        text-align: center;
+        margin: 20px 0;
+      }
+      canvas {
+        border: 2px solid #ddd;
+        margin: 10px;
+        border-radius: 8px;
+      }
+      .instructions {
+        background: #e8f5e9;
+        padding: 15px;
+        border-radius: 8px;
+        margin: 20px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🌱 Generate PWA Icons</h1>
+
+      <div class="instructions">
+        <strong>Instructions:</strong>
+        <ol>
+          <li>Click "Generate Icons" to create the icons</li>
+          <li>Right-click each image and "Save As..."</li>
+          <li>Save icon-192x192.png to the <code>public/</code> folder</li>
+          <li>Save icon-512x512.png to the <code>public/</code> folder</li>
+          <li>Refresh your app to see the install button!</li>
+        </ol>
+      </div>
+
+      <div style="text-align: center">
+        <button onclick="generateIcons()">🎨 Generate Icons</button>
+      </div>
+
+      <div class="preview" id="preview"></div>
+    </div>
+
+    <script>
+      function generateIcons() {
+        const preview = document.getElementById('preview')
+        preview.innerHTML = ''
+
+        // Generate 192x192 icon
+        const canvas192 = createIcon(192)
+        preview.appendChild(createDownloadSection(canvas192, '192x192', 'icon-192x192.png'))
+
+        // Generate 512x512 icon
+        const canvas512 = createIcon(512)
+        preview.appendChild(createDownloadSection(canvas512, '512x512', 'icon-512x512.png'))
+      }
+
+      function createIcon(size) {
+        const canvas = document.createElement('canvas')
+        canvas.width = size
+        canvas.height = size
+        const ctx = canvas.getContext('2d')
+
+        // Background gradient
+        const gradient = ctx.createLinearGradient(0, 0, size, size)
+        gradient.addColorStop(0, '#4CAF50')
+        gradient.addColorStop(1, '#81C784')
+        ctx.fillStyle = gradient
+        ctx.fillRect(0, 0, size, size)
+
+        // Draw plant icon
+        const centerX = size / 2
+        const centerY = size / 2
+        const scale = size / 192
+
+        // Pot
+        ctx.fillStyle = '#8D6E63'
+        ctx.beginPath()
+        ctx.moveTo(centerX - 40 * scale, centerY + 20 * scale)
+        ctx.lineTo(centerX + 40 * scale, centerY + 20 * scale)
+        ctx.lineTo(centerX + 30 * scale, centerY + 60 * scale)
+        ctx.lineTo(centerX - 30 * scale, centerY + 60 * scale)
+        ctx.closePath()
+        ctx.fill()
+
+        // Stem
+        ctx.strokeStyle = '#2E7D32'
+        ctx.lineWidth = 6 * scale
+        ctx.beginPath()
+        ctx.moveTo(centerX, centerY + 20 * scale)
+        ctx.lineTo(centerX, centerY - 40 * scale)
+        ctx.stroke()
+
+        // Leaves
+        ctx.fillStyle = '#4CAF50'
+
+        // Left leaf
+        ctx.beginPath()
+        ctx.ellipse(
+          centerX - 20 * scale,
+          centerY - 20 * scale,
+          25 * scale,
+          15 * scale,
+          -Math.PI / 4,
+          0,
+          Math.PI * 2,
+        )
+        ctx.fill()
+
+        // Right leaf
+        ctx.beginPath()
+        ctx.ellipse(
+          centerX + 20 * scale,
+          centerY - 10 * scale,
+          25 * scale,
+          15 * scale,
+          Math.PI / 4,
+          0,
+          Math.PI * 2,
+        )
+        ctx.fill()
+
+        // Top leaf
+        ctx.beginPath()
+        ctx.ellipse(centerX, centerY - 40 * scale, 20 * scale, 25 * scale, 0, 0, Math.PI * 2)
+        ctx.fill()
+
+        // Highlights on leaves
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)'
+        ctx.beginPath()
+        ctx.ellipse(
+          centerX - 25 * scale,
+          centerY - 22 * scale,
+          8 * scale,
+          6 * scale,
+          -Math.PI / 4,
+          0,
+          Math.PI * 2,
+        )
+        ctx.fill()
+
+        ctx.beginPath()
+        ctx.ellipse(
+          centerX + 18 * scale,
+          centerY - 12 * scale,
+          8 * scale,
+          6 * scale,
+          Math.PI / 4,
+          0,
+          Math.PI * 2,
+        )
+        ctx.fill()
+
+        // Soil
+        ctx.fillStyle = '#5D4037'
+        ctx.beginPath()
+        ctx.ellipse(centerX, centerY + 22 * scale, 35 * scale, 8 * scale, 0, 0, Math.PI * 2)
+        ctx.fill()
+
+        return canvas
+      }
+
+      function createDownloadSection(canvas, label, filename) {
+        const div = document.createElement('div')
+        div.style.display = 'inline-block'
+        div.style.margin = '20px'
+
+        const title = document.createElement('h3')
+        title.textContent = label
+        title.style.color = '#4CAF50'
+        div.appendChild(title)
+
+        // Scale down for preview
+        const previewCanvas = document.createElement('canvas')
+        previewCanvas.width = 150
+        previewCanvas.height = 150
+        const ctx = previewCanvas.getContext('2d')
+        ctx.drawImage(canvas, 0, 0, 150, 150)
+        div.appendChild(previewCanvas)
+
+        const downloadBtn = document.createElement('button')
+        downloadBtn.textContent = `💾 Download ${filename}`
+        downloadBtn.onclick = () => downloadCanvas(canvas, filename)
+        div.appendChild(downloadBtn)
+
+        return div
+      }
+
+      function downloadCanvas(canvas, filename) {
+        canvas.toBlob((blob) => {
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = filename
+          a.click()
+          URL.revokeObjectURL(url)
+        }, 'image/png')
+      }
+
+      // Auto-generate on load
+      window.onload = generateIcons
+    </script>
+  </body>
+</html>
