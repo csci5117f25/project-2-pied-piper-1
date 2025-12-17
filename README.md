@@ -56,7 +56,21 @@ Which (if any) progressive web app feature(s) does your app support?
 **[Add a screenshot of each key page](https://stackoverflow.com/questions/10189356/how-to-add-screenshot-to-readmes-in-github-repository)
 along with a very brief caption:**
 
-![](https://media.giphy.com/media/o0vwzuFwCGAFO/giphy.gif)
+### 1. Home Dashboard
+![Home Dashboard](Mockup/screenshot-home.png)
+*The main dashboard showing weather integration, weekly calendar, and quick status overview.*
+
+### 2. My Plants Collection
+![My Plants](Mockup/screenshot-plants.png)
+*The digital garden view where users can manage their plant collection, filter by type, and add new plants.*
+
+### 3. Rewards & Achievements
+![Rewards Page](Mockup/screenshot-rewards.png)
+*Gamification hub displaying user level, XP progress, and unlocked badges for plant care milestones.*
+
+### 4. Settings & Profile
+![Settings Page](Mockup/screenshot-settings.png)
+*User preferences including notification toggles, dark mode, and profile management.*
 
 ## External Dependencies
 
