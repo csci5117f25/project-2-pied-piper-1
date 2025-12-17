@@ -132,6 +132,7 @@ onUnmounted(() => {
   justify-content: center;
   padding-top: 80px;
   pointer-events: none;
+  overflow: hidden;
 }
 
 .achievement-toast {

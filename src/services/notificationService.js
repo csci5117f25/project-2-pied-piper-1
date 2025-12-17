@@ -11,7 +11,8 @@
 
 import { getToken, onMessage } from 'firebase/messaging'
 import { doc, updateDoc, arrayUnion, arrayRemove, getDoc } from 'firebase/firestore'
-import { messaging, db } from '@/firebase'
+import { httpsCallable } from 'firebase/functions'
+import { messaging, db, functions } from '@/firebase'
 
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY
 
@@ -95,9 +96,12 @@ export async function requestPermissionAndToken(userId) {
     }
 
     // Get FCM token
+    // Note: We don't pass the serviceWorkerRegistration here because it can cause issues
+    // with the token request if the SW scope is different or if it's already active.
+    // The SDK handles the SW registration internally if we don't provide it,
+    // or uses the default one.
     const token = await getToken(messaging, {
       vapidKey: VAPID_KEY,
-      serviceWorkerRegistration: registration,
     })
 
     if (token) {
@@ -298,6 +302,148 @@ export function calculateNextNotificationTime(plant, reminderType) {
 }
 
 /**
+ * Parse time string (e.g. "11:00 AM" or "14:30") to hours and minutes
+ * @param {string} timeStr - Time string
+ * @returns {Object} { hours, minutes }
+ */
+function parseTime(timeStr) {
+  if (!timeStr) return { hours: 9, minutes: 0 } // Default 9 AM
+
+  try {
+    // Handle 24h format (HH:mm)
+    if (!timeStr.includes('AM') && !timeStr.includes('PM')) {
+      const [hours, minutes] = timeStr.split(':').map(Number)
+      return { hours, minutes }
+    }
+
+    // Handle 12h format (hh:mm AM/PM)
+    const [time, period] = timeStr.split(' ')
+    let [hours, minutes] = time.split(':').map(Number)
+
+    if (period === 'PM' && hours !== 12) hours += 12
+    if (period === 'AM' && hours === 12) hours = 0
+
+    return { hours, minutes }
+  } catch (e) {
+    console.error('Error parsing time:', e)
+    return { hours: 9, minutes: 0 }
+  }
+}
+
+/**
+ * Check and schedule local notifications based on user settings
+ * @param {string} userId - The user's ID
+ * @param {Array} plants - Array of plants
+ */
+export async function checkAndScheduleNotifications(userId, plants) {
+  if (!userId || !plants || plants.length === 0) return
+
+  try {
+    // Check if already notified today
+    const today = new Date().toDateString()
+    const lastNotificationDate = localStorage.getItem('lastNotificationDate')
+    if (lastNotificationDate === today) {
+      console.log('Already sent notifications today')
+      return
+    }
+
+    // Get user settings
+    const userRef = doc(db, 'users', userId)
+    const userSnap = await getDoc(userRef)
+    
+    if (!userSnap.exists()) return
+    
+    const userData = userSnap.data()
+    
+    // Check if notifications are enabled globally
+    if (userData.notificationsEnabled === false) return
+
+    // Get reminder time
+    const reminderTimeStr = userData.reminderTime || '09:00 AM'
+    const { hours, minutes } = parseTime(reminderTimeStr)
+
+    const now = new Date()
+    const reminderTime = new Date()
+    reminderTime.setHours(hours, minutes, 0, 0)
+
+    // If it's too early, schedule for later
+    if (now < reminderTime) {
+      const delay = reminderTime.getTime() - now.getTime()
+      console.log(`Scheduling notification for ${reminderTimeStr} (in ${Math.round(delay / 60000)} mins)`)
+      
+      setTimeout(() => {
+        triggerLocalNotifications(userData, plants)
+      }, delay)
+      return
+    }
+
+    // If it's time or past time, trigger now
+    triggerLocalNotifications(userData, plants)
+
+  } catch (error) {
+    console.error('Error scheduling notifications:', error)
+  }
+}
+
+/**
+ * Trigger the actual notifications
+ * @param {Object} userData - User data with settings
+ * @param {Array} plants - Array of plants
+ */
+function triggerLocalNotifications(userData, plants) {
+  // Double check if already notified (in case of multiple tabs/calls)
+  const today = new Date().toDateString()
+  if (localStorage.getItem('lastNotificationDate') === today) return
+
+  if (Notification.permission !== 'granted') return
+
+  const settings = userData.notificationSettings || {}
+  const wateringEnabled = settings.wateringReminders !== false
+  // Fertilizer and pruning are less critical for daily reminders, but can be added
+
+  let notificationsSent = 0
+
+  // Watering notifications
+  if (wateringEnabled) {
+    const plantsNeedingWater = getPlantsNeedingWaterToday(plants)
+
+    if (plantsNeedingWater.length > 0) {
+      if (plantsNeedingWater.length === 1) {
+        const plant = plantsNeedingWater[0]
+        const content = getNotificationContent(plant, 'watering')
+        new Notification(content.title, {
+          body: content.body,
+          icon: content.icon,
+          badge: '/icon-192x192.png',
+          tag: `water-${plant.id}`,
+        })
+        notificationsSent++
+      } else {
+        const plantNames = plantsNeedingWater
+          .slice(0, 3)
+          .map((p) => p.nickname)
+          .join(', ')
+        const remaining = plantsNeedingWater.length - 3
+        const suffix = remaining > 0 ? ` and ${remaining} more` : ''
+        
+        new Notification('🌱 Watering Time!', {
+          body: `${plantNames}${suffix} need water today! 💧`,
+          icon: '/icon-192x192.png',
+          badge: '/icon-192x192.png',
+          tag: 'daily-watering-reminder',
+        })
+        notificationsSent++
+      }
+    }
+  }
+
+  if (notificationsSent > 0) {
+    localStorage.setItem('lastNotificationDate', today)
+    console.log(`Sent ${notificationsSent} notification(s)`)
+  }
+}
+
+/**
  * Check which plants need watering today
  * @param {Array} plants - Array of plant objects
  * @returns {Array} Plants that need watering today
@@ -376,6 +522,22 @@ export async function sendTestNotification(plant, type = 'watering') {
     }
   }
 
+  // Try server-side first to verify full pipeline
+  try {
+    console.log('Requesting server-side test notification...')
+    const sendTest = httpsCallable(functions, 'sendTestNotification')
+    const result = await sendTest()
+    console.log('Server test result:', result.data)
+    
+    if (result.data && result.data.success > 0) {
+      return true
+    }
+    console.warn('Server reported 0 successes, falling back to local')
+  } catch (error) {
+    console.warn('Server test failed, falling back to local:', error)
+  }
+
+  // Fallback to local notification
   const content = getNotificationContent(
     plant || { nickname: 'Test Plant', plantType: 'Succulent' },
     type,

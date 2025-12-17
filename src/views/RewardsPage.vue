@@ -96,9 +96,17 @@
         <div class="achievement-icon-wrapper">
           <div
             :class="['achievement-icon', { locked: !achievement.unlocked }]"
-            :style="achievement.unlocked ? { background: achievement.color } : {}"
+            :style="
+              achievement.unlocked
+                ? { backgroundColor: `rgb(var(--v-theme-${achievement.color}))` }
+                : {}
+            "
           >
-            <v-icon size="28" :color="achievement.unlocked ? 'white' : 'grey'">
+            <v-icon
+              size="28"
+              :color="achievement.unlocked ? 'white' : undefined"
+              :class="{ 'text-medium-emphasis': !achievement.unlocked }"
+            >
               {{ achievement.icon }}
             </v-icon>
           </div>
@@ -222,8 +230,7 @@ const levels = LEVEL_THRESHOLDS
 const totalXP = computed(() => userXP.value)
 
 const currentLevel = computed(() => {
-  const levelInfo = levels.find((l) => l.level === userLevel.value)
-  return levelInfo || levels[0]
+  let level = levels[0]
   for (const l of levels) {
     if (totalXP.value >= l.xpRequired) {
       level = l
@@ -380,6 +387,7 @@ onMounted(() => {
 onUnmounted(() => {
   if (unsubscribePlants) unsubscribePlants()
   if (unsubscribeAchievements) unsubscribeAchievements()
+  if (unsubscribeUser) unsubscribeUser()
 })
 
 // Helper to parse Firestore Timestamp or ISO string
@@ -397,6 +405,7 @@ const parseUnlockedDate = (val) => {
 // Store unsubscribe functions
 let unsubscribePlants = null
 let unsubscribeAchievements = null
+let unsubscribeUser = null
 
 // Process achievements snapshot data
 const processAchievementsSnapshot = (achievementsSnap) => {
@@ -415,7 +424,7 @@ const processAchievementsSnapshot = (achievementsSnap) => {
       today.setHours(0, 0, 0, 0)
       const lastDate = new Date(lastCompletedDate)
       lastDate.setHours(0, 0, 0, 0)
-      const daysDiff = Math.floor((today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24))
+      const daysDiff = Math.round((today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24))
 
       if (daysDiff === 0 || daysDiff === 1) {
         wateringStreak = progress
@@ -481,6 +490,21 @@ const setupRealtimeListeners = (userId) => {
       const { unlockedCount, wateringStreak } = processAchievementsSnapshot(snapshot)
       userStats.value.achievementsUnlocked = unlockedCount
       userStats.value.wateringStreak = wateringStreak
+    })
+
+    // Listen to user document for XP and Level updates
+    const userRef = doc(db, 'users', userId)
+    unsubscribeUser = onSnapshot(userRef, (doc) => {
+      if (doc.exists()) {
+        const userData = doc.data()
+        userXP.value = userData.xp || 0
+        userLevel.value = userData.level || 1
+
+        // Calculate today's task XP
+        const tasksToday = userData.tasksCompletedToday || []
+        const taskCount = tasksToday.filter((t) => !t.endsWith('_bonus')).length
+        todayTasksXP.value = taskCount * 30
+      }
     })
   } catch (error) {
     console.error('Error setting up real-time listeners:', error)
@@ -731,7 +755,7 @@ const loadRecentActivities = async (userId) => {
 /* Achievements Grid */
 .achievements-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 16px;
   margin-bottom: 32px;
 }

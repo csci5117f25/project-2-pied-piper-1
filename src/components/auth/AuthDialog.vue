@@ -238,7 +238,7 @@ import {
   sendPasswordResetEmail,
   updateProfile,
 } from 'firebase/auth'
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore'
+import { doc, setDoc, getDoc, serverTimestamp, runTransaction } from 'firebase/firestore'
 import { auth, db } from '@/firebase'
 
 // Emits
@@ -302,29 +302,35 @@ const confirmPasswordRules = [
 const termsRules = [(v) => !!v || 'You must accept the terms and conditions']
 
 // Create user profile in Firestore
-const createUserProfile = async (user, displayName = null, isNewUser = false) => {
+const createUserProfile = async (user, displayName = null) => {
   try {
     const userRef = doc(db, 'users', user.uid)
-    const profileData = {
-      uid: user.uid,
-      email: user.email,
-      displayName: displayName || user.displayName || signupName.value,
-      photoURL: user.photoURL || null,
-      numberOfPlants: 0,
-      lastLogin: serverTimestamp(),
-      xp: 0,
-      level: 1,
-      tasksCompletedToday: [],
-      lastTaskResetDate: serverTimestamp(),
-    }
-
-    // Only set onboardingCompleted for new users
-    if (isNewUser) {
-      profileData.onboardingCompleted = false
-      profileData.createdAt = serverTimestamp()
-    }
-
-    await setDoc(userRef, profileData, { merge: true })
+    
+    await runTransaction(db, async (transaction) => {
+      const docSnap = await transaction.get(userRef)
+      
+      if (!docSnap.exists()) {
+        const profileData = {
+          uid: user.uid,
+          email: user.email,
+          displayName: displayName || user.displayName || signupName.value || 'User',
+          photoURL: user.photoURL || null,
+          lastLogin: serverTimestamp(),
+          numberOfPlants: 0,
+          xp: 0,
+          level: 1,
+          tasksCompletedToday: [],
+          lastTaskResetDate: serverTimestamp(),
+          onboardingCompleted: false,
+          createdAt: serverTimestamp(),
+        }
+        transaction.set(userRef, profileData)
+      } else {
+        transaction.update(userRef, {
+          lastLogin: serverTimestamp()
+        })
+      }
+    })
   } catch (error) {
     console.error('Error creating user profile:', error)
   }
@@ -347,7 +353,7 @@ const handleEmailLogin = async () => {
     )
 
     // Update user profile with login timestamp
-    await createUserProfile(userCredential.user, null, false)
+    await createUserProfile(userCredential.user, null)
 
     showSuccess.value = true
     successMessage.value = 'Successfully signed in!'
@@ -385,7 +391,7 @@ const handleEmailSignup = async () => {
     })
 
     // Create user profile in Firestore
-    await createUserProfile(userCredential.user, signupName.value, true)
+    await createUserProfile(userCredential.user, signupName.value)
 
     showSuccess.value = true
     successMessage.value = 'Account created successfully!'
@@ -410,12 +416,8 @@ const handleGoogleSignIn = async () => {
     const provider = new GoogleAuthProvider()
     const userCredential = await signInWithPopup(auth, provider)
 
-    // Create or update user profile (check if it's a new user)
-    const userRef = doc(db, 'users', userCredential.user.uid)
-    const userDoc = await getDoc(userRef)
-    const isNewUser = !userDoc.exists()
-
-    await createUserProfile(userCredential.user, null, isNewUser)
+    // Create or update user profile
+    await createUserProfile(userCredential.user, null)
 
     showSuccess.value = true
     successMessage.value = 'Successfully signed in with Google!'

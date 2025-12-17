@@ -22,14 +22,17 @@ export async function handlePlantAdded(userId, plantCount = null) {
   const unlockedAchievements = []
 
   try {
-    // Use provided plant count or read from user doc
-    let count = plantCount
-    if (count === null) {
-      const userRef = doc(db, 'users', userId)
-      const userSnap = await getDoc(userRef)
-      count = userSnap.exists() ? userSnap.data().numberOfPlants || 0 : 0
-    }
-    console.log('handlePlantAdded: user', userId, 'plantCount=', count)
+    // Get actual plant count from database to ensure accuracy
+    const plantsRef = collection(db, 'plants')
+    const q = query(plantsRef, where('userId', '==', userId))
+    const snapshot = await getDocs(q)
+    const count = snapshot.size
+    
+    console.log('handlePlantAdded: user', userId, 'actualCount=', count)
+
+    // Update user's plant count to match actual count
+    const userRef = doc(db, 'users', userId)
+    await setDoc(userRef, { numberOfPlants: count }, { merge: true })
 
     // Update first-plant achievement - only when count is exactly 1 (first plant)
     const firstRef = doc(db, 'users', userId, 'achievements', 'first-plant')
@@ -121,11 +124,17 @@ export async function handlePlantRemoved(userId) {
   if (!userId) return
 
   try {
-    // Read user's current plant count and sync collector progress to that count
+    // Get actual plant count from database to ensure accuracy
+    const plantsRef = collection(db, 'plants')
+    const q = query(plantsRef, where('userId', '==', userId))
+    const snapshot = await getDocs(q)
+    const count = snapshot.size
+    
+    console.log('handlePlantRemoved: user', userId, 'actualCount=', count)
+
+    // Update user's plant count to match actual count
     const userRef = doc(db, 'users', userId)
-    const userSnap = await getDoc(userRef)
-    const count = userSnap.exists() ? userSnap.data().numberOfPlants || 0 : 0
-    console.log('handlePlantRemoved: user', userId, 'plantCount=', count)
+    await setDoc(userRef, { numberOfPlants: count }, { merge: true })
 
     const collectorRef = doc(db, 'users', userId, 'achievements', 'plant-collector')
     const target = 5
@@ -189,7 +198,7 @@ function needsWateringOnDate(plant, targetDate) {
   lastWateredDate.setHours(0, 0, 0, 0)
   target.setHours(0, 0, 0, 0)
 
-  const daysSinceWatering = Math.floor((target - lastWateredDate) / (1000 * 60 * 60 * 24))
+  const daysSinceWatering = Math.round((target - lastWateredDate) / (1000 * 60 * 60 * 24))
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -332,7 +341,7 @@ export async function handlePlantWatered(userId) {
           if (lastDate) {
             const lastDateObj = new Date(lastDate)
             lastDateObj.setHours(0, 0, 0, 0)
-            const daysDiff = Math.floor(
+            const daysDiff = Math.round(
               (todayTimestamp - lastDateObj.getTime()) / (1000 * 60 * 60 * 24),
             )
 
@@ -466,7 +475,7 @@ export async function handleAllPlantsHealthy(userId) {
         if (lastDate) {
           const lastDateObj = new Date(lastDate)
           lastDateObj.setHours(0, 0, 0, 0)
-          const daysDiff = Math.floor(
+          const daysDiff = Math.round(
             (todayTimestamp - lastDateObj.getTime()) / (1000 * 60 * 60 * 24),
           )
 
@@ -875,26 +884,35 @@ export async function handleTaskCompleted(userId, taskType, plantId) {
       }
 
       const newTotalXP = currentXP + xpEarned
+      
+      // Calculate level up inside transaction
+      const currentLevel = userData.level || 1
+      const newLevel = calculateLevel(newTotalXP)
+      let levelUp = null
+
+      if (newLevel > currentLevel) {
+        levelUp = {
+          oldLevel: currentLevel,
+          newLevel,
+          oldLevelInfo: getLevelInfo(currentLevel),
+          newLevelInfo: getLevelInfo(newLevel),
+        }
+      }
 
       // Update user document
       transaction.update(userRef, {
         xp: newTotalXP,
+        level: newLevel,
         tasksCompletedToday,
       })
 
       return {
         xpEarned,
         totalXP: newTotalXP,
-        levelUp: null, // Will check after transaction
+        levelUp,
         allThreeCompleted,
       }
     })
-
-    // Check for level up outside transaction
-    if (result.xpEarned > 0) {
-      const levelUp = await checkLevelUp(userId, result.totalXP)
-      result.levelUp = levelUp
-    }
 
     return result
   } catch (error) {

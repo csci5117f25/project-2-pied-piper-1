@@ -5,6 +5,7 @@ import { getFirestore } from 'firebase/firestore'
 import { getStorage } from 'firebase/storage'
 import { getAnalytics } from 'firebase/analytics'
 import { getMessaging, isSupported } from 'firebase/messaging'
+import { getFunctions } from 'firebase/functions'
 
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
@@ -51,6 +52,9 @@ isSupported()
   .catch((error) => {
     console.warn('Error checking messaging support:', error)
   })
+
+// Initialize Cloud Functions
+export const functions = getFunctions(firebaseApp)
 
 // Export a getter for messaging (since it's initialized async)
 export const getMessagingInstance = () => messagingInstance

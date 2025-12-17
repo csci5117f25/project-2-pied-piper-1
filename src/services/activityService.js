@@ -1,5 +1,6 @@
-import { collection, addDoc, getDocs, query, orderBy, limit } from 'firebase/firestore'
+import { collection, addDoc, getDocs, query, orderBy, limit, doc, runTransaction } from 'firebase/firestore'
 import { db } from '@/firebase'
+import { calculateLevel } from '@/utils/achievements'
 
 /**
  * Activity Types
@@ -87,10 +88,29 @@ export async function logActivity(userId, type, details = {}) {
     }
 
     const activitiesRef = collection(db, 'users', userId, 'activities')
-    const docRef = await addDoc(activitiesRef, activityData)
+    const newActivityRef = doc(activitiesRef)
+
+    await runTransaction(db, async (transaction) => {
+      const userRef = doc(db, 'users', userId)
+      const userDoc = await transaction.get(userRef)
+
+      if (userDoc.exists()) {
+        const userData = userDoc.data()
+        const currentXP = userData.xp || 0
+        const newXP = currentXP + xpEarned
+        const newLevel = calculateLevel(newXP)
+
+        transaction.update(userRef, {
+          xp: newXP,
+          level: newLevel,
+        })
+      }
+
+      transaction.set(newActivityRef, activityData)
+    })
 
     console.log(`Activity logged: ${type}`, activityData)
-    return { id: docRef.id, ...activityData }
+    return { id: newActivityRef.id, ...activityData }
   } catch (error) {
     console.error('Error logging activity:', error)
     return null

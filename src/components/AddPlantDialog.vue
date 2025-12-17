@@ -418,7 +418,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { collection, addDoc, doc, updateDoc, increment, getDoc } from 'firebase/firestore'
 import { handlePlantAdded, handlePlantPhotographed } from '@/utils/achievements'
-import { logAchievementUnlocked } from '@/services/activityService'
+import { logAchievementUnlocked, logActivity, ACTIVITY_TYPES } from '@/services/activityService'
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { onAuthStateChanged } from 'firebase/auth'
 import { auth, db, storage } from '@/firebase'
@@ -821,38 +821,18 @@ const savePlant = async () => {
       // Add new plant
       const docRef = await addDoc(collection(db, 'plants'), plantData)
 
-      // Log activity (non-critical, don't fail if this fails)
-      try {
-        await addDoc(collection(db, 'users', user.value.uid, 'activities'), {
-          type: 'plant_added',
-          title: 'Added New Plant',
-          description: `Welcome ${plantData.nickname} to your collection!`,
-          plantId: docRef.id,
-          timestamp: new Date(),
-          userId: user.value.uid,
-          xpEarned: 10,
-        })
-      } catch (err) {
-        console.error('Failed to log activity:', err)
-      }
-
-      // Get current plant count BEFORE incrementing
-      let currentPlantCount = 0
-      try {
-        const userRef = doc(db, 'users', user.value.uid)
-        const userSnap = await getDoc(userRef)
-        currentPlantCount = userSnap.exists() ? userSnap.data().numberOfPlants || 0 : 0
-
-        // Now increment
-        await updateDoc(userRef, { numberOfPlants: increment(1) })
-      } catch (err) {
-        console.error('Failed to increment user.numberOfPlants:', err)
-      }
-
-      // Update achievements for this user - pass the NEW count (current + 1)
+      // Update achievements for this user
+      // Note: handlePlantAdded will also update the user.numberOfPlants field based on actual count
       let allUnlocks = []
+      let isFirstPlant = false
+
       try {
-        const plantUnlocks = await handlePlantAdded(user.value.uid, currentPlantCount + 1)
+        const plantUnlocks = await handlePlantAdded(user.value.uid)
+        
+        // Check if this was the first plant
+        if (plantUnlocks && plantUnlocks.some(u => u.id === 'first-plant')) {
+          isFirstPlant = true
+        }
 
         // If plant has a photo, also check photo achievement
         let photoUnlock = null
@@ -871,6 +851,23 @@ const savePlant = async () => {
         }
       } catch (err) {
         console.error('Failed to update achievements after adding plant:', err)
+      }
+
+      // Log activity (non-critical, don't fail if this fails)
+      try {
+        // If it's the first plant, we don't award activity XP because the achievement gives 10 XP
+        // This prevents double XP (10 from activity + 10 from achievement)
+        const xpEarned = isFirstPlant ? 0 : 10
+
+        await logActivity(user.value.uid, ACTIVITY_TYPES.PLANT_ADDED, {
+          title: 'Added New Plant',
+          description: `Welcome ${plantData.nickname} to your collection!`,
+          plantId: docRef.id,
+          plantName: plantData.nickname,
+          xpEarned: xpEarned,
+        })
+      } catch (err) {
+        console.error('Failed to log activity:', err)
       }
 
       emit('plant-added', { plant: { id: docRef.id, ...plantData }, achievements: allUnlocks })
