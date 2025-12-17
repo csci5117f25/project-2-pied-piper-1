@@ -98,22 +98,22 @@ Be precise with the waterFrequency (number of days). Choose appropriate frequenc
 })
 
 // OpenWeatherMap API proxy
-exports.getWeather = functions.https.onCall(async (data, context) => {
+exports.getWeather = onCall(async (request) => {
   // Verify user is authenticated
-  if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated')
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated')
   }
 
-  const { lat, lon, type } = data
+  const { lat, lon, type } = request.data
 
   if (!lat || !lon) {
-    throw new functions.https.HttpsError('invalid-argument', 'Latitude and longitude are required')
+    throw new HttpsError('invalid-argument', 'Latitude and longitude are required')
   }
 
   // Get API key from environment (supports both new and legacy config)
   const apiKey = process.env.OPENWEATHER_API_KEY || functions.config().openweather?.key
   if (!apiKey) {
-    throw new functions.https.HttpsError('failed-precondition', 'API key not configured')
+    throw new HttpsError('failed-precondition', 'API key not configured')
   }
 
   const baseUrl = 'https://api.openweathermap.org/data/2.5'
@@ -130,7 +130,7 @@ exports.getWeather = functions.https.onCall(async (data, context) => {
     return response.data
   } catch (error) {
     console.error('Weather API error:', error)
-    throw new functions.https.HttpsError('unavailable', 'Weather service temporarily unavailable')
+    throw new HttpsError('unavailable', 'Weather service temporarily unavailable')
   }
 })
 
